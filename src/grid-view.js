@@ -96,6 +96,7 @@ export class GridView {
 
         const indexTh = document.createElement('th');
         indexTh.textContent = '#';
+        indexTh.className = 'grid-index';
         headerRow.appendChild(indexTh);
 
         columns.forEach(col => {
@@ -117,6 +118,7 @@ export class GridView {
 
             const indexTd = document.createElement('td');
             indexTd.textContent = rowIndex;
+            indexTd.className = 'grid-index';
             tr.appendChild(indexTd);
 
             columns.forEach(col => {

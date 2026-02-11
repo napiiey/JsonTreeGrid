@@ -142,6 +142,18 @@ body {
   background: #263545;
 }
 
+.grid-index {
+  background: #1e1e1e !important;
+  color: #666;
+  border: none !important;
+  border-right: 1px solid #333 !important;
+  text-align: right;
+  min-width: 40px !important;
+  padding-right: 12px !important;
+  user-select: none;
+  font-size: 11px;
+}
+
 .grid-cell.active-col {
   background: rgba(0, 120, 212, 0.1);
 }

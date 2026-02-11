@@ -140,6 +140,30 @@ export class GridView {
             return '';
         };
 
+        // ヘッダーの手前にcolgroupを追加
+        const colgroup = document.createElement('colgroup');
+        // Index列用
+        const indexCol = document.createElement('col');
+        indexCol.style.width = '40px';
+        colgroup.appendChild(indexCol);
+
+        columnDefs.forEach(colDef => {
+            const col = document.createElement('col');
+            const colId = colDef.parent ? `${colDef.parent}.${colDef.name}` : colDef.name;
+            const width = this.columnWidths[colId] || 80;
+            col.style.width = `${width}px`;
+            col.dataset.colId = colId;
+            colgroup.appendChild(col);
+        });
+        table.appendChild(colgroup);
+
+        // テーブル全体の初期幅を設定
+        const initialTableWidth = 40 + columnDefs.reduce((sum, colDef) => {
+            const colId = colDef.parent ? `${colDef.parent}.${colDef.name}` : colDef.name;
+            return sum + (this.columnWidths[colId] || 80);
+        }, 0);
+        table.style.width = `${initialTableWidth}px`;
+
         // ヘッダー
         const thead = document.createElement('thead');
         const headerRow1 = document.createElement('tr');
@@ -155,7 +179,10 @@ export class GridView {
         columnDefs.forEach((colDef, idx) => {
             if (colDef.parent === null) {
                 const th = document.createElement('th');
-                th.textContent = colDef.name;
+                const content = document.createElement('div');
+                content.className = 'th-content';
+                content.textContent = colDef.name;
+                th.appendChild(content);
                 th.setAttribute('rowspan', '2');
                 const hClass = getHeaderClass(colDef.name);
                 if (hClass) th.classList.add(hClass);
@@ -163,23 +190,22 @@ export class GridView {
 
                 // 幅の適用
                 const colId = colDef.name;
-                if (this.columnWidths[colId]) {
-                    th.style.width = `${this.columnWidths[colId]}px`;
-                    th.style.minWidth = `${this.columnWidths[colId]}px`;
-                }
 
                 // リサイズハンドル
                 const handle = document.createElement('div');
                 handle.className = 'col-resize-handle';
                 handle.dataset.col = colId;
-                th.dataset.colId = colId;
+                th.dataset.colId = colId; // colIdを設定
                 th.appendChild(handle);
 
                 headerRow1.appendChild(th);
             } else {
                 if (!processedParents.has(colDef.parent)) {
                     const parentTh = document.createElement('th');
-                    parentTh.textContent = colDef.parent;
+                    const content = document.createElement('div');
+                    content.className = 'th-content';
+                    content.textContent = colDef.parent;
+                    parentTh.appendChild(content);
                     const subCols = columnDefs.filter(c => c.parent === colDef.parent);
                     parentTh.setAttribute('colspan', subCols.length);
                     if (colDef.parent === activeKey) parentTh.style.background = '#0078d4';
@@ -188,22 +214,21 @@ export class GridView {
                 }
 
                 const th = document.createElement('th');
-                th.textContent = colDef.name;
+                const content = document.createElement('div');
+                content.className = 'th-content';
+                content.textContent = colDef.name;
+                th.appendChild(content);
                 const hClass = getHeaderClass(colDef.name);
                 if (hClass) th.classList.add(hClass);
 
                 // 幅の適用
                 const colId = `${colDef.parent}.${colDef.name}`;
-                if (this.columnWidths[colId]) {
-                    th.style.width = `${this.columnWidths[colId]}px`;
-                    th.style.minWidth = `${this.columnWidths[colId]}px`;
-                }
 
                 // リサイズハンドル
                 const handle = document.createElement('div');
                 handle.className = 'col-resize-handle';
                 handle.dataset.col = colId;
-                th.dataset.colId = colId;
+                th.dataset.colId = colId; // colIdを設定
                 th.appendChild(handle);
 
                 headerRow2.appendChild(th);
@@ -301,16 +326,30 @@ export class GridView {
     handleMouseMove(e) {
         if (!this.resizingCol) return;
         const diff = e.clientX - this.startX;
-        const newWidth = Math.max(30, this.startWidth + diff);
+        const newWidth = Math.max(5, this.startWidth + diff); // 最小幅を5pxに緩和
         this.columnWidths[this.resizingCol] = newWidth;
 
-        // 再描画せずに幅だけ更新（パフォーマンスのため）
-        const ths = this.container.querySelectorAll('.grid-table th');
+        // <col>の幅を更新
+        const col = this.container.querySelector(`col[data-col-id="${this.resizingCol}"]`);
+        if (col) {
+            col.style.width = `${newWidth}px`;
+        }
+
+        // テーブル全体の幅を再計算して更新
+        const table = this.container.querySelector('.grid-table');
+        if (table) {
+            let totalWidth = 40; // Index
+            const cols = table.querySelectorAll('colgroup col[data-col-id]');
+            cols.forEach(c => {
+                totalWidth += parseFloat(c.style.width);
+            });
+            table.style.width = `${totalWidth}px`;
+        }
+
+        // 念のため対応する全thも更新して強制フラッシュさせる
+        const ths = this.container.querySelectorAll(`.grid-table th[data-col-id="${this.resizingCol}"]`);
         ths.forEach(th => {
-            if (th.dataset.colId === this.resizingCol) {
-                th.style.width = `${newWidth}px`;
-                th.style.minWidth = `${newWidth}px`;
-            }
+            th.style.width = `${newWidth}px`;
         });
     }
 

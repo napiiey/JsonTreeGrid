@@ -166,9 +166,8 @@ body {
 .grid-table {
   border-collapse: collapse;
   font-size: 13px;
-  min-width: 100%;
+  width: auto;
   table-layout: fixed;
-  /* カラム幅を固定可能にする */
 }
 
 .grid-table th {
@@ -181,6 +180,21 @@ body {
   text-align: center;
   /* position: relative;  <-- REMOVED: overlays sticky behavior */
   /* ハンドル配置用 */
+
+  /* コンテンツ幅より狭く縮めるための設定 */
+  /* overflow: hidden; <-- REMOVED: hides resize handle */
+  /* text-overflow: ellipsis; */
+  /* white-space: nowrap; */
+  min-width: 0;
+  /* width指定を優先 */
+}
+
+/* テキストクリッピング用ラッパー */
+.th-content {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
 }
 
 /* 2行目ヘッダーの固定位置調整 */
@@ -193,21 +207,28 @@ body {
   position: absolute;
   top: 0;
   right: 0;
-  width: 4px;
+  /* 右端の境界線上に配置 */
+  width: 10px;
+  /* クリック領域を確保 */
   height: 100%;
   cursor: col-resize;
-  z-index: 11;
+  z-index: 100;
+  /* 他の要素より前面に */
+  bottom: 0;
+  background: transparent;
+  /* 通常時は見えない */
 }
 
 .col-resize-handle:hover {
-  background: #0078d4;
+  background: rgba(0, 120, 212, 0.5);
+  /* ホバー時にうっすら表示 */
 }
 
 .grid-table td {
   border: 1px solid #333;
   padding: 4px 8px;
-  min-width: 30px;
-  /* index列などのために調整 */
+  min-width: 0;
+  /* width指定を優先 */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

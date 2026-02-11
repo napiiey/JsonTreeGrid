@@ -11,9 +11,9 @@ export class GridView {
         this.startX = 0;
         this.startWidth = 0;
 
-        // フラット化の開閉状態
-        this.collapsedParents = new Set(); // オブジェクト用（デフォルト展開）
-        this.expandedParents = new Set();  // 配列用（デフォルト折りたたみ）
+        // フラット化の開閉状態 (フルパス文字列をキーにする)
+        this.collapsedPaths = new Set(); // オブジェクト用（デフォルト展開）
+        this.expandedPaths = new Set();  // 配列用（デフォルト折りたたみ）
 
         // 行ドラッグ用の状態
         this.draggedRowIndex = null;
@@ -63,91 +63,72 @@ export class GridView {
         const table = document.createElement('table');
         table.className = 'grid-table';
 
-        // カラムの決定
-        let columnDefs = []; // { parent: string|null, name: string }
-        if (isArray) {
-            const structureMap = new Map(); // key -> Set of subkeys
+        // --- 再帰的なカラム構造探索 ---
+        const getFlattenedColumns = (items, currentPathParts = []) => {
+            const structureMap = new Map(); // key -> { subKeys: Set, isArray: bool, isObject: bool }
 
-            rows.forEach(item => {
+            items.forEach(item => {
                 if (item !== null && typeof item === 'object') {
                     Object.keys(item).forEach(k => {
-                        if (!structureMap.has(k)) structureMap.set(k, { subKeys: new Set(), isArray: false });
+                        if (!structureMap.has(k)) {
+                            structureMap.set(k, { subKeys: new Set(), isArray: false, isObject: false });
+                        }
                         const val = item[k];
+                        const info = structureMap.get(k);
                         if (val !== null && typeof val === 'object') {
-                            const info = structureMap.get(k);
                             if (Array.isArray(val)) {
                                 info.isArray = true;
-                                if (this.expandedParents.has(k)) {
-                                    for (let i = 0; i < val.length; i++) {
-                                        info.subKeys.add(`[${i}]`);
-                                    }
-                                }
+                                val.forEach((_, i) => info.subKeys.add(`[${i}]`));
                             } else {
-                                if (!this.collapsedParents.has(k)) {
-                                    Object.keys(val).forEach(subK => info.subKeys.add(subK));
-                                }
+                                info.isObject = true;
+                                Object.keys(val).forEach(sk => info.subKeys.add(sk));
                             }
                         }
                     });
                 }
             });
 
+            const defs = [];
             structureMap.forEach((info, key) => {
-                if (info.subKeys.size > 0) {
-                    info.subKeys.forEach(subK => {
-                        columnDefs.push({ parent: key, name: subK });
-                    });
+                const fullPathParts = [...currentPathParts, key];
+                const fullPathStr = fullPathParts.join('.');
+
+                const isCollapsible = info.isArray || info.isObject;
+                let isExpanded = false;
+                if (isCollapsible) {
+                    const defaultExpanded = info.isObject && !info.isArray;
+                    // デフォルト挙動 + 個別の上書き状態を確認
+                    if (this.collapsedPaths.has(fullPathStr)) isExpanded = false;
+                    else if (this.expandedPaths.has(fullPathStr)) isExpanded = true;
+                    else isExpanded = defaultExpanded;
+                }
+
+                if (isExpanded && info.subKeys.size > 0) {
+                    const subItems = items.map(it => it ? it[key] : undefined).filter(it => it !== undefined);
+                    const subCols = getFlattenedColumns(subItems, fullPathParts);
+                    subCols.forEach(sc => defs.push(sc));
                 } else {
-                    columnDefs.push({
-                        parent: null,
+                    defs.push({
+                        path: fullPathParts,
                         name: key,
-                        isCollapsible: true, // オブジェクトまたは配列なら常に開閉可能
-                        isCollapsed: info.isArray ? !this.expandedParents.has(key) : this.collapsedParents.has(key)
+                        isCollapsible,
+                        isCollapsed: !isExpanded,
+                        isArray: info.isArray
                     });
                 }
             });
+            return defs;
+        };
 
-            if (columnDefs.length === 0) columnDefs = [{ parent: null, name: 'value' }];
-        } else {
-            const firstRow = rows[0] || {};
-            Object.keys(firstRow).forEach(k => {
-                const val = firstRow[k];
-                const isArrayType = Array.isArray(val);
-                const isObjectType = val !== null && typeof val === 'object' && !isArrayType;
-
-                let shouldFlatten = false;
-                if (isArrayType) {
-                    shouldFlatten = this.expandedParents.has(k);
-                } else if (isObjectType) {
-                    shouldFlatten = !this.collapsedParents.has(k);
-                }
-
-                if (shouldFlatten) {
-                    if (isArrayType) {
-                        for (let i = 0; i < val.length; i++) {
-                            columnDefs.push({ parent: k, name: `[${i}]` });
-                        }
-                    } else {
-                        Object.keys(val).forEach(subK => {
-                            columnDefs.push({ parent: k, name: subK });
-                        });
-                    }
-                } else {
-                    columnDefs.push({
-                        parent: null,
-                        name: k,
-                        isCollapsible: isArrayType || isObjectType,
-                        isCollapsed: isArrayType ? !this.expandedParents.has(k) : this.collapsedParents.has(k)
-                    });
-                }
-            });
-        }
+        // コンテキスト(rows)に対する相対的なカラム定義を取得
+        let columnDefs = getFlattenedColumns(rows);
+        if (columnDefs.length === 0) columnDefs = [{ path: ['value'], name: 'value', isCollapsible: false }];
 
         // カラムごとの最大値を計算（データバー用）および初期幅の計算
         const columnMaxMap = new Map();
         const colInitialWidths = new Map();
         columnDefs.forEach(colDef => {
-            const colId = colDef.parent ? `${colDef.parent}.${colDef.name}` : colDef.name;
+            const colId = colDef.path.join('.');
             let max = -Infinity;
             let hasNumeric = false;
 
@@ -159,9 +140,7 @@ export class GridView {
             }
 
             rows.forEach(rowData => {
-                const val = colDef.parent
-                    ? (rowData && rowData[colDef.parent] ? rowData[colDef.parent][colDef.name] : undefined)
-                    : (rowData && typeof rowData === 'object' ? rowData[colDef.name] : rowData);
+                const val = this.model.getValueByPath(colDef.path, rowData);
 
                 const num = parseFloat(val);
                 if (!isNaN(num)) {
@@ -220,7 +199,7 @@ export class GridView {
 
         columnDefs.forEach(colDef => {
             const col = document.createElement('col');
-            const colId = colDef.parent ? `${colDef.parent}.${colDef.name}` : colDef.name;
+            const colId = colDef.path.join('.');
             const width = colInitialWidths.get(colId);
             col.style.width = `${width}px`;
             col.dataset.colId = colId;
@@ -233,126 +212,127 @@ export class GridView {
         colInitialWidths.forEach(w => initialTableWidth += w);
         table.style.width = `${initialTableWidth}px`;
 
-        // ヘッダー
+        // --- 多段ヘッダーの生成 ---
         const thead = document.createElement('thead');
-        const headerRow1 = document.createElement('tr');
-        const headerRow2 = document.createElement('tr');
+        const maxDepth = columnDefs.reduce((m, c) => Math.max(m, c.path.length), 0);
 
-        const indexTh = document.createElement('th');
-        indexTh.textContent = '';
-        indexTh.className = 'grid-index';
-        indexTh.setAttribute('rowspan', '2');
-        headerRow1.appendChild(indexTh);
+        for (let d = 0; d < maxDepth; d++) {
+            const tr = document.createElement('tr');
 
-        const processedParents = new Set();
-        columnDefs.forEach((colDef, idx) => {
-            if (colDef.parent === null) {
-                const th = document.createElement('th');
-                const content = document.createElement('div');
-                content.className = 'th-content';
+            if (d === 0) {
+                const indexTh = document.createElement('th');
+                indexTh.className = 'grid-index';
+                indexTh.setAttribute('rowspan', maxDepth);
+                tr.appendChild(indexTh);
+            }
 
-                // 折りたたみ/展開アイコンの表示
-                if (colDef.isCollapsible) {
-                    const toggle = document.createElement('span');
-                    toggle.className = 'grid-toggle';
-                    toggle.textContent = colDef.isCollapsed ? '▸' : '▾';
-                    toggle.onclick = (e) => {
-                        e.stopPropagation();
-                        // 状態を反転させるロジックに変更
-                        const model_context = this.model.getGridContext(this.selectedPath);
-                        const val = (model_context.rows[0] || {})[colDef.name];
-                        if (Array.isArray(val)) {
-                            if (this.expandedParents.has(colDef.name)) this.expandedParents.delete(colDef.name);
-                            else this.expandedParents.add(colDef.name);
-                        } else {
-                            if (this.collapsedParents.has(colDef.name)) this.collapsedParents.delete(colDef.name);
-                            else this.collapsedParents.add(colDef.name);
+            for (let i = 0; i < columnDefs.length; i++) {
+                const col = columnDefs[i];
+                const segment = col.path[d];
+
+                // depth d に到達していないパス（理論上ないはずだが安全策）
+                if (segment === undefined) continue;
+
+                // 前の列と同じグループかチェック
+                let prevGroup = true;
+                if (i === 0) prevGroup = false;
+                else {
+                    for (let step = 0; step <= d; step++) {
+                        if (columnDefs[i - 1].path[step] !== col.path[step]) {
+                            prevGroup = false;
+                            break;
                         }
-                        this.render();
-                    };
-                    th.appendChild(toggle); // th直下に追加
+                    }
                 }
 
-                const nameSpan = document.createElement('span');
-                nameSpan.textContent = colDef.name;
-                content.appendChild(nameSpan);
-                th.appendChild(content);
-                th.setAttribute('rowspan', '2');
-                const hClass = getHeaderClass(colDef.name);
-                if (hClass) th.classList.add(hClass);
-                if (colDef.name === activeKey) th.style.background = '#0078d4';
-
-                // 幅の適用
-                const colId = colDef.name;
-
-                // リサイズハンドル
-                const handle = document.createElement('div');
-                handle.className = 'col-resize-handle';
-                handle.dataset.col = colId;
-                th.dataset.colId = colId; // colIdを設定
-                th.appendChild(handle);
-
-                headerRow1.appendChild(th);
-            } else {
-                if (!processedParents.has(colDef.parent)) {
-                    const parentTh = document.createElement('th');
+                if (!prevGroup) {
+                    // 新しいヘッダーセルを作成
+                    const th = document.createElement('th');
                     const content = document.createElement('div');
                     content.className = 'th-content';
+                    content.textContent = segment;
+                    th.appendChild(content);
 
-                    // 展開されている親のトグルボタン
-                    const toggle = document.createElement('span');
-                    toggle.className = 'grid-toggle';
-                    toggle.textContent = '▾';
-                    toggle.onclick = (e) => {
-                        e.stopPropagation();
-                        const model_context = this.model.getGridContext(this.selectedPath);
-                        const val = (model_context.rows[0] || {})[colDef.parent];
-                        if (Array.isArray(val)) {
-                            this.expandedParents.delete(colDef.parent);
-                        } else {
-                            this.collapsedParents.add(colDef.parent);
+                    // colspan の計算
+                    let colspan = 1;
+                    for (let j = i + 1; j < columnDefs.length; j++) {
+                        let match = true;
+                        for (let step = 0; step <= d; step++) {
+                            if (columnDefs[j].path[step] !== col.path[step]) {
+                                match = false;
+                                break;
+                            }
                         }
-                        this.render();
-                    };
-                    parentTh.appendChild(toggle); // th直下に追加
+                        if (match) colspan++;
+                        else break;
+                    }
+                    if (colspan > 1) th.setAttribute('colspan', colspan);
 
-                    const nameSpan = document.createElement('span');
-                    nameSpan.textContent = colDef.parent;
-                    content.appendChild(nameSpan);
+                    // rowspan の計算 (これがパスの最後のセグメントなら下まで伸ばす)
+                    if (d === col.path.length - 1) {
+                        const rs = maxDepth - d;
+                        if (rs > 1) th.setAttribute('rowspan', rs);
 
-                    parentTh.appendChild(content);
-                    const subCols = columnDefs.filter(c => c.parent === colDef.parent);
-                    parentTh.setAttribute('colspan', subCols.length);
-                    if (colDef.parent === activeKey) parentTh.style.background = '#0078d4';
-                    headerRow1.appendChild(parentTh);
-                    processedParents.add(colDef.parent);
+                        // リサイズハンドルは末端のセルに付ける
+                        const colId = col.path.join('.');
+                        const handle = document.createElement('div');
+                        handle.className = 'col-resize-handle';
+                        handle.dataset.col = colId;
+                        th.dataset.colId = colId;
+                        th.appendChild(handle);
+                    }
+
+                    // 開閉ボタンの追加
+                    const fullPathStr = col.path.slice(0, d + 1).join('.');
+                    if (col.isCollapsible && d === col.path.length - 1) {
+                        // リーフ（折りたたまれている状態）
+                        const toggle = document.createElement('span');
+                        toggle.className = 'grid-toggle';
+                        toggle.textContent = '▸';
+                        toggle.onclick = (e) => {
+                            e.stopPropagation();
+                            if (col.isArray) this.expandedPaths.add(fullPathStr);
+                            else this.collapsedPaths.delete(fullPathStr);
+                            this.render();
+                        };
+                        th.appendChild(toggle);
+                    } else if (d < col.path.length - 1) {
+                        // 中間ノード（展開されている状態）
+                        // 同じセグメントに対して1回だけボタンを付ける
+                        if (true) {
+                            const toggle = document.createElement('span');
+                            toggle.className = 'grid-toggle';
+                            toggle.textContent = '▾';
+                            toggle.onclick = (e) => {
+                                e.stopPropagation();
+                                const isArrayVal = segment.startsWith('[') || (col.isArray && d === col.path.length - 2);
+                                // 正確な型判定のためにモデルを参照したほうがよいが、ここでは簡易的に
+                                if (segment.startsWith('[')) this.expandedPaths.delete(fullPathStr);
+                                else {
+                                    // オブジェクトか配列かを判定して対応するSetを更新
+                                    // getFlattenedColumns の info を引き継ぐのが理想的
+                                    this.collapsedPaths.add(fullPathStr);
+                                    this.expandedPaths.delete(fullPathStr); // 万が一両方入らないよう
+                                }
+                                this.render();
+                            };
+                            th.appendChild(toggle);
+                        }
+                    }
+
+                    // スタイル
+                    const hClass = (segment.toLowerCase().includes('name') || segment.toLowerCase().includes('id')) ? 'col-name' :
+                        (segment.toLowerCase().includes('stats') || segment.toLowerCase().includes('val')) ? 'col-val' : '';
+                    if (hClass) th.classList.add(hClass);
+                    if (segment === activeKey) th.style.background = '#0078d4';
+
+                    // sticky top の動的計算
+                    th.style.top = `${d * 30}px`;
+
+                    tr.appendChild(th);
                 }
-
-                const th = document.createElement('th');
-                const content = document.createElement('div');
-                content.className = 'th-content';
-                content.textContent = colDef.name;
-                th.appendChild(content);
-                const hClass = getHeaderClass(colDef.name);
-                if (hClass) th.classList.add(hClass);
-
-                // 幅の適用
-                const colId = `${colDef.parent}.${colDef.name}`;
-
-                // リサイズハンドル
-                const handle = document.createElement('div');
-                handle.className = 'col-resize-handle';
-                handle.dataset.col = colId;
-                th.dataset.colId = colId; // colIdを設定
-                th.appendChild(handle);
-
-                headerRow2.appendChild(th);
             }
-        });
-
-        thead.appendChild(headerRow1);
-        if (headerRow2.children.length > 0) {
-            thead.appendChild(headerRow2);
+            thead.appendChild(tr);
         }
         table.appendChild(thead);
 
@@ -373,13 +353,7 @@ export class GridView {
                 const td = document.createElement('td');
                 td.className = 'grid-cell';
 
-                const val = colDef.parent
-                    ? (rowData && rowData[colDef.parent] ? (
-                        colDef.name.startsWith('[')
-                            ? rowData[colDef.parent][parseInt(colDef.name.slice(1, -1))]
-                            : rowData[colDef.parent][colDef.name]
-                    ) : undefined)
-                    : (rowData && typeof rowData === 'object' ? rowData[colDef.name] : rowData);
+                const val = this.model.getValueByPath(colDef.path, rowData);
 
                 if (val !== null && typeof val === 'object') {
                     td.textContent = JSON.stringify(val);
@@ -405,20 +379,11 @@ export class GridView {
                 let cellPath = this.partsToPath(parentParts);
                 if (isArray) {
                     cellPath += `[${rowIndex}]`;
-                    if (typeof rowData === 'object') {
-                        if (colDef.parent) {
-                            cellPath += `.${colDef.parent}.${colDef.name}`;
-                        } else {
-                            cellPath += `.${colDef.name}`;
-                        }
-                    }
-                } else {
-                    if (colDef.parent) {
-                        cellPath += `.${colDef.parent}.${colDef.name}`;
-                    } else {
-                        cellPath += `.${colDef.name}`;
-                    }
                 }
+                colDef.path.forEach(p => {
+                    if (p.startsWith('[')) cellPath += p;
+                    else cellPath += (cellPath ? '.' : '') + p;
+                });
                 td.dataset.path = cellPath;
 
                 if (cellPath === this.selectedPath) {

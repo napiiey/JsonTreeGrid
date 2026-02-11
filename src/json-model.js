@@ -159,6 +159,77 @@ export class JsonModel extends EventTarget {
     }
 
     /**
+     * オブジェクト内のキーの順序を変更する
+     * 同じ親を持つ兄弟キー同士でのみ移動可能
+     */
+    moveKey(parentPathParts, oldKey, newKey) {
+        if (oldKey === newKey) return;
+
+        // 再帰的に適用する関数
+        const reorderInObject = (obj) => {
+            if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+                if (Object.prototype.hasOwnProperty.call(obj, oldKey) && Object.prototype.hasOwnProperty.call(obj, newKey)) {
+                    const keys = Object.keys(obj);
+                    const oldIndex = keys.indexOf(oldKey);
+                    const newIndex = keys.indexOf(newKey);
+                    if (oldIndex === -1 || newIndex === -1) return;
+
+                    // 配列操作で順序を入れ替える
+                    const item = keys.splice(oldIndex, 1)[0];
+                    keys.splice(newIndex, 0, item);
+
+                    const newObj = {};
+                    keys.forEach(k => {
+                        newObj[k] = obj[k];
+                    });
+
+                    // 中身を入れ替える
+                    Object.keys(obj).forEach(k => delete obj[k]);
+                    Object.assign(obj, newObj);
+                }
+            }
+        };
+
+        const traverseAndReorder = (current, path) => {
+            if (path.length === 0) {
+                if (Array.isArray(current)) {
+                    current.forEach(item => reorderInObject(item));
+                } else {
+                    reorderInObject(current);
+                }
+                return;
+            }
+
+            const first = path[0];
+            const rest = path.slice(1);
+
+            // インデックスの判定
+            let index = -1;
+            if (typeof first === 'number') index = first;
+            else if (typeof first === 'string' && first.startsWith('[') && first.endsWith(']')) {
+                index = parseInt(first.slice(1, -1), 10);
+            }
+
+            if (index !== -1) {
+                if (Array.isArray(current)) {
+                    current.forEach(item => traverseAndReorder(item, rest));
+                } else if (current && current[index] !== undefined) {
+                    traverseAndReorder(current[index], rest);
+                }
+            } else {
+                if (Array.isArray(current)) {
+                    current.forEach(item => traverseAndReorder(item, path));
+                } else if (current && typeof current === 'object' && current[first] !== undefined) {
+                    traverseAndReorder(current[first], rest);
+                }
+            }
+        };
+
+        traverseAndReorder(this.data, parentPathParts);
+        this.dispatchEvent(new CustomEvent('dataChange'));
+    }
+
+    /**
      * 指定されたパスが含まれる最近接の配列コンテキストを取得する
      */
     getGridContext(path) {

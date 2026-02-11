@@ -253,6 +253,85 @@ export class GridView {
                     const content = document.createElement('div');
                     content.className = 'th-content';
                     content.textContent = segment;
+
+                    // ドラッグ可能にする (リネームと共存させるためハンドル以外をドラッグ領域とするか、ハンドルを追加するか)
+                    // ここではヘッダー全体をドラッグ可能にするが、リサイズハンドルや入力中は除外する制御が必要
+                    content.draggable = true;
+                    content.ondragstart = (e) => {
+                        // リサイズハンドル等を掴んでいる場合はドラッグしない
+                        if (e.target.classList.contains('col-resize-handle') || e.target.tagName === 'INPUT') {
+                            e.preventDefault();
+                            return;
+                        }
+                        e.dataTransfer.setData('application/json', JSON.stringify({
+                            path: col.path.slice(0, d + 1),
+                            parentPath: col.path.slice(0, d),
+                            key: segment
+                        }));
+                        e.dataTransfer.effectAllowed = 'move';
+                        th.classList.add('dragging-col');
+                    };
+
+                    content.ondragover = (e) => {
+                        e.preventDefault(); // ドロップ許可
+                        // 親パスが一致する場合のみ許可
+                        const data = document.querySelector('.dragging-col');
+                        if (data) {
+                            // 簡易的な同一階層チェック（厳密にはdropで検査）
+                            th.classList.add('header-drag-over');
+                            e.dataTransfer.dropEffect = 'move';
+                        }
+                    };
+
+                    content.ondragleave = (e) => {
+                        th.classList.remove('header-drag-over');
+                    };
+
+                    content.ondrop = (e) => {
+                        e.preventDefault();
+                        th.classList.remove('header-drag-over');
+                        const rawOpt = e.dataTransfer.getData('application/json');
+                        if (!rawOpt) return;
+
+                        try {
+                            const srcData = JSON.parse(rawOpt);
+                            const targetParentPath = col.path.slice(0, d);
+                            const targetKey = segment;
+                            const srcParentPath = srcData.parentPath;
+
+                            if (JSON.stringify(srcParentPath) === JSON.stringify(targetParentPath)) {
+                                // フルパス（ルートを含む）でモデルに渡す（getFlattenedColumnsが生成するpathはルートからの相対パス）
+                                // ただし grid-view の col.path は getFlattenedColumns の fullPathParts。
+                                // getFlattenedColumns の fullPathParts は 親の items 呼び出し時の currentPathParts に依存。
+                                // GridView render 内:
+                                // const context = this.model.getGridContext(this.selectedPath);
+                                // const getFlattenedColumns = (items, currentPathParts = []) => ...
+                                // ...
+                                // let columnDefs = getFlattenedColumns(rows);
+                                // この時 currentPathParts はデフォルト [] 。
+                                // つまり col.path は rows 内の 相対パス。
+                                // 一方 moveKey は root からのパスを期待している。
+                                // よって parentParts (context.parentParts) をプレフィックスとして付与する必要がある。
+                                // ... と思いきや、 getGridContext は rows を返す。
+                                // rows が array の場合、 items = rows. 
+                                // columnDefs の path には root からの情報は含まれていない (selectedPath配下の相対パス)
+
+                                // 正: moveKey に渡すべきは root からの path。
+                                // context.parentParts + srcParentPath
+
+                                const fullParentPath = [...parentParts, ...srcParentPath];
+                                this.model.moveKey(fullParentPath, srcData.key, targetKey);
+                            }
+                        } catch (err) {
+                            console.error(err);
+                        }
+                    };
+
+                    content.ondragend = () => {
+                        document.querySelectorAll('.dragging-col').forEach(el => el.classList.remove('dragging-col'));
+                        document.querySelectorAll('.header-drag-over').forEach(el => el.classList.remove('header-drag-over'));
+                    };
+
                     th.appendChild(content);
 
                     // ダブルクリックで名前変更

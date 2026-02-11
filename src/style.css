@@ -189,6 +189,11 @@ body {
   min-width: 0;
 }
 
+.grid-table th.header-drag-over {
+  border-left: 2px solid #0078d4;
+  background: #383838;
+}
+
 .grid-toggle {
   position: absolute;
   bottom: 0px;

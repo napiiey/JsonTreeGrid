@@ -11,8 +11,9 @@ export class GridView {
         this.startX = 0;
         this.startWidth = 0;
 
-        // フラット化の開閉状態（折りたたまれている親キーのSet）
-        this.collapsedParents = new Set();
+        // フラット化の開閉状態
+        this.collapsedParents = new Set(); // オブジェクト用（デフォルト展開）
+        this.expandedParents = new Set();  // 配列用（デフォルト折りたたみ）
 
         // 行ドラッグ用の状態
         this.draggedRowIndex = null;
@@ -70,22 +71,39 @@ export class GridView {
             rows.forEach(item => {
                 if (item !== null && typeof item === 'object') {
                     Object.keys(item).forEach(k => {
-                        if (!structureMap.has(k)) structureMap.set(k, new Set());
+                        if (!structureMap.has(k)) structureMap.set(k, { subKeys: new Set(), isArray: false });
                         const val = item[k];
-                        if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
-                            Object.keys(val).forEach(subK => structureMap.get(k).add(subK));
+                        if (val !== null && typeof val === 'object') {
+                            const info = structureMap.get(k);
+                            if (Array.isArray(val)) {
+                                info.isArray = true;
+                                if (this.expandedParents.has(k)) {
+                                    for (let i = 0; i < val.length; i++) {
+                                        info.subKeys.add(`[${i}]`);
+                                    }
+                                }
+                            } else {
+                                if (!this.collapsedParents.has(k)) {
+                                    Object.keys(val).forEach(subK => info.subKeys.add(subK));
+                                }
+                            }
                         }
                     });
                 }
             });
 
-            structureMap.forEach((subKeys, key) => {
-                if (subKeys.size > 0 && !this.collapsedParents.has(key)) {
-                    subKeys.forEach(subK => {
+            structureMap.forEach((info, key) => {
+                if (info.subKeys.size > 0) {
+                    info.subKeys.forEach(subK => {
                         columnDefs.push({ parent: key, name: subK });
                     });
                 } else {
-                    columnDefs.push({ parent: null, name: key, isCollapsible: subKeys.size > 0 });
+                    columnDefs.push({
+                        parent: null,
+                        name: key,
+                        isCollapsible: true, // オブジェクトまたは配列なら常に開閉可能
+                        isCollapsed: info.isArray ? !this.expandedParents.has(key) : this.collapsedParents.has(key)
+                    });
                 }
             });
 
@@ -94,12 +112,33 @@ export class GridView {
             const firstRow = rows[0] || {};
             Object.keys(firstRow).forEach(k => {
                 const val = firstRow[k];
-                if (val !== null && typeof val === 'object' && !Array.isArray(val) && !this.collapsedParents.has(k)) {
-                    Object.keys(val).forEach(subK => {
-                        columnDefs.push({ parent: k, name: subK });
-                    });
+                const isArrayType = Array.isArray(val);
+                const isObjectType = val !== null && typeof val === 'object' && !isArrayType;
+
+                let shouldFlatten = false;
+                if (isArrayType) {
+                    shouldFlatten = this.expandedParents.has(k);
+                } else if (isObjectType) {
+                    shouldFlatten = !this.collapsedParents.has(k);
+                }
+
+                if (shouldFlatten) {
+                    if (isArrayType) {
+                        for (let i = 0; i < val.length; i++) {
+                            columnDefs.push({ parent: k, name: `[${i}]` });
+                        }
+                    } else {
+                        Object.keys(val).forEach(subK => {
+                            columnDefs.push({ parent: k, name: subK });
+                        });
+                    }
                 } else {
-                    columnDefs.push({ parent: null, name: k, isCollapsible: (val !== null && typeof val === 'object' && !Array.isArray(val)) });
+                    columnDefs.push({
+                        parent: null,
+                        name: k,
+                        isCollapsible: isArrayType || isObjectType,
+                        isCollapsed: isArrayType ? !this.expandedParents.has(k) : this.collapsedParents.has(k)
+                    });
                 }
             });
         }
@@ -212,14 +251,23 @@ export class GridView {
                 const content = document.createElement('div');
                 content.className = 'th-content';
 
-                // 折りたたまれている親の場合はアイコンを表示
+                // 折りたたみ/展開アイコンの表示
                 if (colDef.isCollapsible) {
                     const toggle = document.createElement('span');
                     toggle.className = 'grid-toggle';
-                    toggle.textContent = '▸';
+                    toggle.textContent = colDef.isCollapsed ? '▸' : '▾';
                     toggle.onclick = (e) => {
                         e.stopPropagation();
-                        this.collapsedParents.delete(colDef.name);
+                        // 状態を反転させるロジックに変更
+                        const model_context = this.model.getGridContext(this.selectedPath);
+                        const val = (model_context.rows[0] || {})[colDef.name];
+                        if (Array.isArray(val)) {
+                            if (this.expandedParents.has(colDef.name)) this.expandedParents.delete(colDef.name);
+                            else this.expandedParents.add(colDef.name);
+                        } else {
+                            if (this.collapsedParents.has(colDef.name)) this.collapsedParents.delete(colDef.name);
+                            else this.collapsedParents.add(colDef.name);
+                        }
                         this.render();
                     };
                     content.appendChild(toggle);
@@ -257,7 +305,13 @@ export class GridView {
                     toggle.textContent = '▾';
                     toggle.onclick = (e) => {
                         e.stopPropagation();
-                        this.collapsedParents.add(colDef.parent);
+                        const model_context = this.model.getGridContext(this.selectedPath);
+                        const val = (model_context.rows[0] || {})[colDef.parent];
+                        if (Array.isArray(val)) {
+                            this.expandedParents.delete(colDef.parent);
+                        } else {
+                            this.collapsedParents.add(colDef.parent);
+                        }
                         this.render();
                     };
                     content.appendChild(toggle);
@@ -320,10 +374,14 @@ export class GridView {
                 td.className = 'grid-cell';
 
                 const val = colDef.parent
-                    ? (rowData && rowData[colDef.parent] ? rowData[colDef.parent][colDef.name] : undefined)
+                    ? (rowData && rowData[colDef.parent] ? (
+                        colDef.name.startsWith('[')
+                            ? rowData[colDef.parent][parseInt(colDef.name.slice(1, -1))]
+                            : rowData[colDef.parent][colDef.name]
+                    ) : undefined)
                     : (rowData && typeof rowData === 'object' ? rowData[colDef.name] : rowData);
 
-                if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
+                if (val !== null && typeof val === 'object') {
                     td.textContent = JSON.stringify(val);
                     td.title = JSON.stringify(val, null, 2);
                     td.classList.add('cell-object');

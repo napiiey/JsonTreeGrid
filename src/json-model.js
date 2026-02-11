@@ -96,8 +96,6 @@ export class JsonModel extends EventTarget {
      */
     getGridContext(path) {
         const parts = this.parsePath(path);
-        if (parts.length === 0) return this.getParentAndKey(path);
-
         const val = this.getValueByPath(parts);
 
         // 1. パス自体が配列である場合
@@ -126,11 +124,21 @@ export class JsonModel extends EventTarget {
             }
         }
 
-        // 配列が見つからない場合は通常の親オブジェクトを返す
+        // 3. 自分自身がオブジェクト（非配列）の場合、それを単一行として表示
+        if (val !== null && typeof val === 'object') {
+            return {
+                rows: [val],
+                parentParts: parts,
+                relativePath: [],
+                isArray: false
+            };
+        }
+
+        // 4. プリミティブ等の場合は、親オブジェクト（またはルート）をコンテキストとして表示
         const pk = this.getParentAndKey(path);
         return {
-            rows: [pk.parent],
-            parentParts: pk.parentParts,
+            rows: pk.parent ? [pk.parent] : [this.data],
+            parentParts: pk.parentParts || [],
             relativePath: [pk.key],
             isArray: false
         };

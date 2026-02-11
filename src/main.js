@@ -106,6 +106,7 @@ class App {
             ]
         };
         this.model.setData(demoData);
+        this.model.setSelection('root');
     }
 
     closeAllMenus() {

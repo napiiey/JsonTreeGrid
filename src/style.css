@@ -153,8 +153,8 @@ body {
   width: 1px !important;
   /* コンテンツに合わせて収縮させる */
   min-width: unset !important;
-  padding: 4px 6px 4px 2px !important;
-  /* 左右の余白を最小化 */
+  padding: 4px 8px !important;
+  /* 左右に8pxのゆとりを持たせる */
   user-select: none;
   font-size: 11px;
   white-space: nowrap;

@@ -270,7 +270,7 @@ export class GridView {
                         }
                         this.render();
                     };
-                    content.appendChild(toggle);
+                    th.appendChild(toggle); // th直下に追加
                 }
 
                 const nameSpan = document.createElement('span');
@@ -314,7 +314,7 @@ export class GridView {
                         }
                         this.render();
                     };
-                    content.appendChild(toggle);
+                    parentTh.appendChild(toggle); // th直下に追加
 
                     const nameSpan = document.createElement('span');
                     nameSpan.textContent = colDef.parent;

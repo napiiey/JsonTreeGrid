@@ -147,9 +147,13 @@ body {
   color: #666;
   border: none !important;
   border-right: 1px solid #333 !important;
+  border-bottom: none !important;
+  /* 行間の線を消す */
   text-align: right;
-  min-width: 40px !important;
-  padding-right: 12px !important;
+  min-width: 25px !important;
+  /* さらに狭く */
+  padding-right: 6px !important;
+  /* 余白を詰める */
   user-select: none;
   font-size: 11px;
 }

@@ -95,7 +95,7 @@ export class GridView {
         const headerRow = document.createElement('tr');
 
         const indexTh = document.createElement('th');
-        indexTh.textContent = '#';
+        indexTh.textContent = ''; // '#' を削除して空白にする
         indexTh.className = 'grid-index';
         headerRow.appendChild(indexTh);
 

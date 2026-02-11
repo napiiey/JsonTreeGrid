@@ -207,16 +207,12 @@ body {
   position: absolute;
   top: 0;
   right: 0;
-  /* 右端の境界線上に配置 */
-  width: 10px;
-  /* クリック領域を確保 */
+  width: 5px;
   height: 100%;
   cursor: col-resize;
   z-index: 100;
-  /* 他の要素より前面に */
   bottom: 0;
   background: transparent;
-  /* 通常時は見えない */
 }
 
 .col-resize-handle:hover {

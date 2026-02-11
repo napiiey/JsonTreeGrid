@@ -61,8 +61,8 @@ export class JsonModel extends EventTarget {
             .filter(p => p !== 'root');
     }
 
-    getValueByPath(parts) {
-        let current = this.data;
+    getValueByPath(parts, root = this.data) {
+        let current = root;
         for (const part of parts) {
             if (current === undefined || current === null) return undefined;
             current = current[part];

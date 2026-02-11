@@ -101,24 +101,53 @@ export class GridView {
             });
         }
 
-        // カラムごとの最大値を計算（データバー用）
+        // カラムごとの最大値を計算（データバー用）および初期幅の計算
         const columnMaxMap = new Map();
+        const colInitialWidths = new Map();
         columnDefs.forEach(colDef => {
+            const colId = colDef.parent ? `${colDef.parent}.${colDef.name}` : colDef.name;
             let max = -Infinity;
             let hasNumeric = false;
+
+            // カラム名（ヘッダー）の長さから開始
+            let maxLen = 0;
+            const headerName = colDef.name;
+            for (let i = 0; i < headerName.length; i++) {
+                maxLen += headerName.charCodeAt(i) > 255 ? 2 : 1;
+            }
+
             rows.forEach(rowData => {
                 const val = colDef.parent
                     ? (rowData && rowData[colDef.parent] ? rowData[colDef.parent][colDef.name] : undefined)
                     : (rowData && typeof rowData === 'object' ? rowData[colDef.name] : rowData);
+
                 const num = parseFloat(val);
                 if (!isNaN(num)) {
                     if (num > max) max = num;
                     hasNumeric = true;
                 }
+
+                if (val !== null && val !== undefined && (typeof val === 'string' || typeof val === 'number')) {
+                    const s = String(val);
+                    // 全角を2、半角を1として視覚的な長さを計算
+                    let visualLen = 0;
+                    for (let i = 0; i < s.length; i++) {
+                        visualLen += s.charCodeAt(i) > 255 ? 2 : 1;
+                    }
+                    if (visualLen > maxLen) maxLen = visualLen;
+                }
             });
+
             if (hasNumeric && max > 0) {
                 columnMaxMap.set(colDef, max);
             }
+
+            // 初期幅の計算 (60pxベース、内容に合わせて調整)
+            let finalWidth = this.columnWidths[colId];
+            if (!finalWidth) {
+                finalWidth = Math.max(60, maxLen * 7 + 12);
+            }
+            colInitialWidths.set(colId, finalWidth);
         });
 
         // カラム名から色クラスへのマッピング
@@ -150,7 +179,7 @@ export class GridView {
         columnDefs.forEach(colDef => {
             const col = document.createElement('col');
             const colId = colDef.parent ? `${colDef.parent}.${colDef.name}` : colDef.name;
-            const width = this.columnWidths[colId] || 80;
+            const width = colInitialWidths.get(colId);
             col.style.width = `${width}px`;
             col.dataset.colId = colId;
             colgroup.appendChild(col);
@@ -158,10 +187,8 @@ export class GridView {
         table.appendChild(colgroup);
 
         // テーブル全体の初期幅を設定
-        const initialTableWidth = 40 + columnDefs.reduce((sum, colDef) => {
-            const colId = colDef.parent ? `${colDef.parent}.${colDef.name}` : colDef.name;
-            return sum + (this.columnWidths[colId] || 80);
-        }, 0);
+        let initialTableWidth = 40; // Index
+        colInitialWidths.forEach(w => initialTableWidth += w);
         table.style.width = `${initialTableWidth}px`;
 
         // ヘッダー

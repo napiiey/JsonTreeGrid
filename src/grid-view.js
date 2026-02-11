@@ -291,7 +291,7 @@ export class GridView {
 
                     if (col.isCollapsible && d === col.path.length - 1) {
                         // リーフ（折りたたまれている状態）
-                        toggle.textContent = '▸';
+                        toggle.textContent = '▾';
                         toggle.onclick = (e) => {
                             e.stopPropagation();
                             if (col.isArray) {
@@ -304,7 +304,7 @@ export class GridView {
                         th.appendChild(toggle);
                     } else if (d < col.path.length - 1) {
                         // 中間ノード（展開されている状態）
-                        toggle.textContent = '▾';
+                        toggle.textContent = '▴';
                         toggle.onclick = (e) => {
                             e.stopPropagation();
                             // 配列かオブジェクトかの判定

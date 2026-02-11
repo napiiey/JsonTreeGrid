@@ -199,10 +199,9 @@ body {
   line-height: 10px;
   text-align: center;
   cursor: pointer;
-  color: #666;
+  color: #fff;
   font-size: 8px;
   z-index: 2;
-  transition: all 0.2s;
 }
 
 .grid-toggle:hover {

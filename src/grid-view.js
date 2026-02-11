@@ -113,7 +113,9 @@ export class GridView {
                         name: key,
                         isCollapsible,
                         isCollapsed: !isExpanded,
-                        isArray: info.isArray
+                        isArray: info.isArray,
+                        // 各パスの型情報を保存しておく
+                        pathInfoMap: new Map([[fullPathStr, { isArray: info.isArray, isObject: info.isObject }]])
                     });
                 }
             });
@@ -284,40 +286,39 @@ export class GridView {
 
                     // 開閉ボタンの追加
                     const fullPathStr = col.path.slice(0, d + 1).join('.');
+                    const toggle = document.createElement('span');
+                    toggle.className = 'grid-toggle';
+
                     if (col.isCollapsible && d === col.path.length - 1) {
                         // リーフ（折りたたまれている状態）
-                        const toggle = document.createElement('span');
-                        toggle.className = 'grid-toggle';
                         toggle.textContent = '▸';
                         toggle.onclick = (e) => {
                             e.stopPropagation();
-                            if (col.isArray) this.expandedPaths.add(fullPathStr);
-                            else this.collapsedPaths.delete(fullPathStr);
+                            if (col.isArray) {
+                                this.expandedPaths.add(fullPathStr);
+                            } else {
+                                this.collapsedPaths.delete(fullPathStr);
+                            }
                             this.render();
                         };
                         th.appendChild(toggle);
                     } else if (d < col.path.length - 1) {
                         // 中間ノード（展開されている状態）
-                        // 同じセグメントに対して1回だけボタンを付ける
-                        if (true) {
-                            const toggle = document.createElement('span');
-                            toggle.className = 'grid-toggle';
-                            toggle.textContent = '▾';
-                            toggle.onclick = (e) => {
-                                e.stopPropagation();
-                                const isArrayVal = segment.startsWith('[') || (col.isArray && d === col.path.length - 2);
-                                // 正確な型判定のためにモデルを参照したほうがよいが、ここでは簡易的に
-                                if (segment.startsWith('[')) this.expandedPaths.delete(fullPathStr);
-                                else {
-                                    // オブジェクトか配列かを判定して対応するSetを更新
-                                    // getFlattenedColumns の info を引き継ぐのが理想的
-                                    this.collapsedPaths.add(fullPathStr);
-                                    this.expandedPaths.delete(fullPathStr); // 万が一両方入らないよう
-                                }
-                                this.render();
-                            };
-                            th.appendChild(toggle);
-                        }
+                        toggle.textContent = '▾';
+                        toggle.onclick = (e) => {
+                            e.stopPropagation();
+                            // 配列かオブジェクトかの判定
+                            // セグメントが [0] 形式、またはパス自体が配列として管理されている場合
+                            const isArrayNode = segment.startsWith('[') || this.expandedPaths.has(fullPathStr);
+
+                            if (isArrayNode) {
+                                this.expandedPaths.delete(fullPathStr);
+                            } else {
+                                this.collapsedPaths.add(fullPathStr);
+                            }
+                            this.render();
+                        };
+                        th.appendChild(toggle);
                     }
 
                     // スタイル

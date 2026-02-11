@@ -88,8 +88,19 @@ export class JsonModel extends EventTarget {
         const parts = this.parsePath(path);
         if (parts.length === 0) return this.getParentAndKey(path);
 
-        // 末尾から遡って、最初に見つかる「数値インデックス」を探す
-        // そのインデックスの親が「最近接の配列」
+        const val = this.getValueByPath(parts);
+
+        // 1. パス自体が配列である場合
+        if (Array.isArray(val)) {
+            return {
+                rows: val,
+                parentParts: parts,
+                relativePath: [],
+                isArray: true
+            };
+        }
+
+        // 2. 親方向に遡って最近接の配列を探す
         for (let i = parts.length - 1; i >= 0; i--) {
             if (typeof parts[i] === 'number') {
                 const arrayParts = parts.slice(0, i);
@@ -98,7 +109,7 @@ export class JsonModel extends EventTarget {
                     return {
                         rows: array,
                         parentParts: arrayParts,
-                        relativePath: parts.slice(i + 1), // インデックスより後のパス（例: .name）
+                        relativePath: parts.slice(i + 1),
                         isArray: true
                     };
                 }

@@ -29,6 +29,7 @@ export class TreeView {
             this.expandedPaths.delete(path);
         } else {
             this.expandedPaths.add(path);
+            this.select(path); // 展開時に選択してグリッドに表示させる
         }
         this.render();
     }

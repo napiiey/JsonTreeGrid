@@ -81,6 +81,16 @@ export class JsonModel extends EventTarget {
         return { parent, key, parentParts };
     }
 
+    moveArrayElement(path, fromIndex, toIndex) {
+        const parts = this.parsePath(path);
+        const array = this.getValueByPath(parts);
+        if (Array.isArray(array)) {
+            const [item] = array.splice(fromIndex, 1);
+            array.splice(toIndex, 0, item);
+            this.dispatchEvent(new CustomEvent('dataChange'));
+        }
+    }
+
     /**
      * 指定されたパスが含まれる最近接の配列コンテキストを取得する
      */

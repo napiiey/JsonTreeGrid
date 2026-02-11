@@ -4,6 +4,16 @@ export class GridView {
         this.model = model;
         this.selectedPath = null;
         this.editingCell = null;
+        this.columnWidths = {}; // キー: カラム名, 値: 幅(px)
+
+        // カラムリサイズ用の状態
+        this.resizingCol = null;
+        this.startX = 0;
+        this.startWidth = 0;
+
+        // 行ドラッグ用の状態
+        this.draggedRowIndex = null;
+        this.dragOverRowIndex = null;
 
         this.container.addEventListener('click', (e) => {
             const cell = e.target.closest('.grid-cell');
@@ -16,6 +26,17 @@ export class GridView {
             if (!cell) return;
             this.startEdit(cell, { append: true });
         });
+
+        this.container.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+        window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+        window.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+
+        // ドラッグ＆ドロップ（行の並べ替え）
+        this.container.addEventListener('dragstart', (e) => this.handleDragStart(e));
+        this.container.addEventListener('dragover', (e) => this.handleDragOver(e));
+        this.container.addEventListener('dragleave', (e) => this.handleDragLeave(e));
+        this.container.addEventListener('drop', (e) => this.handleDrop(e));
+        this.container.addEventListener('dragend', (e) => this.handleDragEnd(e));
 
         window.addEventListener('keydown', (e) => this.handleKeyDown(e));
     }
@@ -105,6 +126,19 @@ export class GridView {
             const hClass = getHeaderClass(col);
             if (hClass) th.classList.add(hClass);
             if (col === activeKey) th.style.background = '#0078d4';
+
+            // 幅の適用
+            if (this.columnWidths[col]) {
+                th.style.width = `${this.columnWidths[col]}px`;
+                th.style.minWidth = `${this.columnWidths[col]}px`;
+            }
+
+            // リサイズハンドルの追加
+            const handle = document.createElement('div');
+            handle.className = 'col-resize-handle';
+            handle.dataset.col = col;
+            th.appendChild(handle);
+
             headerRow.appendChild(th);
         });
         thead.appendChild(headerRow);
@@ -115,6 +149,8 @@ export class GridView {
         rows.forEach((rowData, rowIndex) => {
             const tr = document.createElement('tr');
             tr.className = 'grid-row';
+            tr.dataset.index = rowIndex;
+            tr.draggable = true; // 行全体をドラッグ可能に
 
             const indexTd = document.createElement('td');
             indexTd.textContent = rowIndex;
@@ -163,6 +199,100 @@ export class GridView {
         });
         table.appendChild(tbody);
         this.container.appendChild(table);
+    }
+
+    // --- カラムリサイズ ---
+    handleMouseDown(e) {
+        if (e.target.classList.contains('col-resize-handle')) {
+            this.resizingCol = e.target.dataset.col;
+            this.startX = e.clientX;
+            const th = e.target.parentElement;
+            this.startWidth = th.offsetWidth;
+            document.body.style.cursor = 'col-resize';
+            e.preventDefault();
+        }
+    }
+
+    handleMouseMove(e) {
+        if (!this.resizingCol) return;
+        const diff = e.clientX - this.startX;
+        const newWidth = Math.max(30, this.startWidth + diff);
+        this.columnWidths[this.resizingCol] = newWidth;
+
+        // 再描画せずに幅だけ更新（パフォーマンスのため）
+        const ths = this.container.querySelectorAll('.grid-table th');
+        ths.forEach(th => {
+            if (th.textContent === this.resizingCol) {
+                th.style.width = `${newWidth}px`;
+                th.style.minWidth = `${newWidth}px`;
+            }
+        });
+    }
+
+    handleMouseUp() {
+        if (this.resizingCol) {
+            this.resizingCol = null;
+            document.body.style.cursor = 'default';
+        }
+    }
+
+    // --- 行の並べ替え (Drag & Drop) ---
+    handleDragStart(e) {
+        const tr = e.target.closest('.grid-row');
+        if (!tr) return;
+        this.draggedRowIndex = parseInt(tr.dataset.index);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(this.draggedRowIndex));
+        setTimeout(() => tr.classList.add('dragging'), 0);
+    }
+
+    handleDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const tr = e.target.closest('.grid-row');
+        if (!tr) return;
+
+        const index = parseInt(tr.dataset.index);
+        if (index === this.draggedRowIndex) return;
+
+        this.dragOverRowIndex = index;
+        this.container.querySelectorAll('.grid-row').forEach(r => r.classList.remove('drag-over'));
+        tr.classList.add('drag-over');
+    }
+
+    handleDragLeave(e) {
+        const tr = e.target.closest('.grid-row');
+        if (tr) tr.classList.remove('drag-over');
+    }
+
+    handleDrop(e) {
+        e.preventDefault();
+        const tr = e.target.closest('.grid-row');
+        if (!tr || this.draggedRowIndex === null) return;
+
+        const toIndex = parseInt(tr.dataset.index);
+        const fromIndex = this.draggedRowIndex;
+
+        if (fromIndex !== toIndex) {
+            const context = this.model.getGridContext(this.selectedPath);
+            const arrayPath = this.partsToPath(context.parentParts);
+            console.log(`Move: ${fromIndex} -> ${toIndex}, arrayPath: ${arrayPath}`);
+            this.model.moveArrayElement(arrayPath, fromIndex, toIndex);
+        }
+
+        this._cleanupDrag();
+    }
+
+    handleDragEnd(e) {
+        this._cleanupDrag();
+    }
+
+    _cleanupDrag() {
+        this.draggedRowIndex = null;
+        this.dragOverRowIndex = null;
+        this.container.querySelectorAll('.grid-row').forEach(r => {
+            r.classList.remove('dragging', 'drag-over');
+        });
     }
 
     partsToPath(parts) {

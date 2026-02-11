@@ -111,6 +111,8 @@ body {
   border-collapse: collapse;
   font-size: 13px;
   min-width: 100%;
+  table-layout: fixed;
+  /* カラム幅を固定可能にする */
 }
 
 .grid-table th {
@@ -121,15 +123,41 @@ body {
   border: 1px solid #444;
   padding: 4px 8px;
   text-align: left;
+  position: relative;
+  /* ハンドル配置用 */
+}
+
+.col-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 11;
+}
+
+.col-resize-handle:hover {
+  background: #0078d4;
 }
 
 .grid-table td {
   border: 1px solid #333;
   padding: 4px 8px;
-  min-width: 100px;
+  min-width: 30px;
+  /* index列などのために調整 */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.grid-row.dragging {
+  opacity: 0.5;
+  background: #333;
+}
+
+.grid-row.drag-over {
+  border-top: 2px solid #0078d4;
 }
 
 .grid-row:hover {

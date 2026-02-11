@@ -41,7 +41,6 @@ export class GridView {
         // カラムの決定
         let columns = [];
         if (isArray) {
-            // 配列の場合：全要素の全キーを網羅してカラムにする
             const keySet = new Set();
             rows.forEach(item => {
                 if (item !== null && typeof item === 'object') {
@@ -49,11 +48,47 @@ export class GridView {
                 }
             });
             columns = Array.from(keySet);
-            if (columns.length === 0) columns = ['value']; // プリミティブ配列の場合
+            if (columns.length === 0) columns = ['value'];
         } else {
-            // 親がオブジェクトの場合：そのオブジェクトを表示（rows=[obj]）
             columns = Object.keys(rows[0] || {});
         }
+
+        // カラムごとの最大値を計算（データバー用）
+        const columnMaxMap = {};
+        columns.forEach(col => {
+            let max = -Infinity;
+            let hasNumeric = false;
+            rows.forEach(rowData => {
+                const val = (rowData && typeof rowData === 'object') ? rowData[col] : rowData;
+                const num = parseFloat(val);
+                if (!isNaN(num)) {
+                    if (num > max) max = num;
+                    hasNumeric = true;
+                }
+            });
+            if (hasNumeric && max > 0) {
+                columnMaxMap[col] = max;
+            }
+        });
+
+        // カラム名から色クラスへのマッピング
+        const getColorClass = (col) => {
+            const c = col.toLowerCase();
+            if (c.includes('hp')) return 'bar-green';
+            if (c.includes('atk')) return 'bar-red';
+            if (c.includes('int')) return 'bar-blue';
+            if (c.includes('def')) return 'bar-yellow';
+            return 'bar-grey';
+        };
+
+        const getHeaderClass = (col) => {
+            const c = col.toLowerCase();
+            if (c.includes('hp')) return 'col-hp';
+            if (c.includes('atk')) return 'col-atk';
+            if (c.includes('int')) return 'col-int';
+            if (c.includes('def')) return 'col-def';
+            return '';
+        };
 
         // ヘッダー
         const thead = document.createElement('thead');
@@ -66,6 +101,8 @@ export class GridView {
         columns.forEach(col => {
             const th = document.createElement('th');
             th.textContent = col;
+            const hClass = getHeaderClass(col);
+            if (hClass) th.classList.add(hClass);
             if (col === activeKey) th.style.background = '#0078d4';
             headerRow.appendChild(th);
         });
@@ -87,6 +124,19 @@ export class GridView {
                 td.className = 'grid-cell';
                 const val = (rowData && typeof rowData === 'object') ? rowData[col] : rowData;
                 td.textContent = val !== undefined ? (typeof val === 'object' ? JSON.stringify(val) : val) : '';
+
+                // データバーの追加
+                const num = parseFloat(val);
+                if (columnMaxMap[col] !== undefined && !isNaN(num)) {
+                    const max = columnMaxMap[col];
+                    const percent = Math.min(100, Math.max(0, (num / max) * 100));
+
+                    const bar = document.createElement('div');
+                    bar.className = `data-bar ${getColorClass(col)}`;
+                    bar.style.width = `${percent}%`;
+                    td.classList.add('has-bar');
+                    td.appendChild(bar);
+                }
 
                 // パスを保持
                 let cellPath = this.partsToPath(parentParts);

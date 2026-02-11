@@ -58,13 +58,13 @@ class App {
 
         // 初期データの読み込み（デモ用）
         const demoData = {
-            project: "JsonTreeGrid",
+            project: "JsonTreeGridSample",
             version: 1.0,
             settings: {
                 theme: "dark",
                 features: ["tree", "grid", "keyboard"]
             },
-            users: [
+            monsters: [
                 { id: 1, name: "スライム", hp: 10, atk: 1, int: 0, def: 1 },
                 { id: 2, name: "ゴブリン", hp: 15, atk: 2, int: 0, def: 2 },
                 { id: 3, name: "オーク", hp: 20, atk: 3, int: 0, def: 2 },

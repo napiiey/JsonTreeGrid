@@ -11,6 +11,9 @@ export class GridView {
         this.startX = 0;
         this.startWidth = 0;
 
+        // フラット化の開閉状態（折りたたまれている親キーのSet）
+        this.collapsedParents = new Set();
+
         // 行ドラッグ用の状態
         this.draggedRowIndex = null;
         this.dragOverRowIndex = null;
@@ -77,12 +80,12 @@ export class GridView {
             });
 
             structureMap.forEach((subKeys, key) => {
-                if (subKeys.size > 0) {
+                if (subKeys.size > 0 && !this.collapsedParents.has(key)) {
                     subKeys.forEach(subK => {
                         columnDefs.push({ parent: key, name: subK });
                     });
                 } else {
-                    columnDefs.push({ parent: null, name: key });
+                    columnDefs.push({ parent: null, name: key, isCollapsible: subKeys.size > 0 });
                 }
             });
 
@@ -91,12 +94,12 @@ export class GridView {
             const firstRow = rows[0] || {};
             Object.keys(firstRow).forEach(k => {
                 const val = firstRow[k];
-                if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
+                if (val !== null && typeof val === 'object' && !Array.isArray(val) && !this.collapsedParents.has(k)) {
                     Object.keys(val).forEach(subK => {
                         columnDefs.push({ parent: k, name: subK });
                     });
                 } else {
-                    columnDefs.push({ parent: null, name: k });
+                    columnDefs.push({ parent: null, name: k, isCollapsible: (val !== null && typeof val === 'object' && !Array.isArray(val)) });
                 }
             });
         }
@@ -142,10 +145,10 @@ export class GridView {
                 columnMaxMap.set(colDef, max);
             }
 
-            // 初期幅の計算 (60pxベース、内容に合わせて調整)
+            // 初期幅の計算 (60pxベース、内容に合わせて調整。自動計算時は最大400pxに制限)
             let finalWidth = this.columnWidths[colId];
             if (!finalWidth) {
-                finalWidth = Math.max(60, maxLen * 7 + 12);
+                finalWidth = Math.min(400, Math.max(60, maxLen * 7 + 12));
             }
             colInitialWidths.set(colId, finalWidth);
         });
@@ -208,7 +211,23 @@ export class GridView {
                 const th = document.createElement('th');
                 const content = document.createElement('div');
                 content.className = 'th-content';
-                content.textContent = colDef.name;
+
+                // 折りたたまれている親の場合はアイコンを表示
+                if (colDef.isCollapsible) {
+                    const toggle = document.createElement('span');
+                    toggle.className = 'grid-toggle';
+                    toggle.textContent = '▸';
+                    toggle.onclick = (e) => {
+                        e.stopPropagation();
+                        this.collapsedParents.delete(colDef.name);
+                        this.render();
+                    };
+                    content.appendChild(toggle);
+                }
+
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = colDef.name;
+                content.appendChild(nameSpan);
                 th.appendChild(content);
                 th.setAttribute('rowspan', '2');
                 const hClass = getHeaderClass(colDef.name);
@@ -231,7 +250,22 @@ export class GridView {
                     const parentTh = document.createElement('th');
                     const content = document.createElement('div');
                     content.className = 'th-content';
-                    content.textContent = colDef.parent;
+
+                    // 展開されている親のトグルボタン
+                    const toggle = document.createElement('span');
+                    toggle.className = 'grid-toggle';
+                    toggle.textContent = '▾';
+                    toggle.onclick = (e) => {
+                        e.stopPropagation();
+                        this.collapsedParents.add(colDef.parent);
+                        this.render();
+                    };
+                    content.appendChild(toggle);
+
+                    const nameSpan = document.createElement('span');
+                    nameSpan.textContent = colDef.parent;
+                    content.appendChild(nameSpan);
+
                     parentTh.appendChild(content);
                     const subCols = columnDefs.filter(c => c.parent === colDef.parent);
                     parentTh.setAttribute('colspan', subCols.length);
@@ -289,7 +323,13 @@ export class GridView {
                     ? (rowData && rowData[colDef.parent] ? rowData[colDef.parent][colDef.name] : undefined)
                     : (rowData && typeof rowData === 'object' ? rowData[colDef.name] : rowData);
 
-                td.textContent = val !== undefined ? (typeof val === 'object' ? JSON.stringify(val) : val) : '';
+                if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
+                    td.textContent = JSON.stringify(val);
+                    td.title = JSON.stringify(val, null, 2);
+                    td.classList.add('cell-object');
+                } else {
+                    td.textContent = val !== undefined ? val : '';
+                }
 
                 // データバー
                 const num = parseFloat(val);

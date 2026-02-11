@@ -60,27 +60,56 @@ export class GridView {
         table.className = 'grid-table';
 
         // カラムの決定
-        let columns = [];
+        let columnDefs = []; // { parent: string|null, name: string }
         if (isArray) {
-            const keySet = new Set();
+            const structureMap = new Map(); // key -> Set of subkeys
+
             rows.forEach(item => {
                 if (item !== null && typeof item === 'object') {
-                    Object.keys(item).forEach(k => keySet.add(k));
+                    Object.keys(item).forEach(k => {
+                        if (!structureMap.has(k)) structureMap.set(k, new Set());
+                        const val = item[k];
+                        if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
+                            Object.keys(val).forEach(subK => structureMap.get(k).add(subK));
+                        }
+                    });
                 }
             });
-            columns = Array.from(keySet);
-            if (columns.length === 0) columns = ['value'];
+
+            structureMap.forEach((subKeys, key) => {
+                if (subKeys.size > 0) {
+                    subKeys.forEach(subK => {
+                        columnDefs.push({ parent: key, name: subK });
+                    });
+                } else {
+                    columnDefs.push({ parent: null, name: key });
+                }
+            });
+
+            if (columnDefs.length === 0) columnDefs = [{ parent: null, name: 'value' }];
         } else {
-            columns = Object.keys(rows[0] || {});
+            const firstRow = rows[0] || {};
+            Object.keys(firstRow).forEach(k => {
+                const val = firstRow[k];
+                if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
+                    Object.keys(val).forEach(subK => {
+                        columnDefs.push({ parent: k, name: subK });
+                    });
+                } else {
+                    columnDefs.push({ parent: null, name: k });
+                }
+            });
         }
 
         // カラムごとの最大値を計算（データバー用）
-        const columnMaxMap = {};
-        columns.forEach(col => {
+        const columnMaxMap = new Map();
+        columnDefs.forEach(colDef => {
             let max = -Infinity;
             let hasNumeric = false;
             rows.forEach(rowData => {
-                const val = (rowData && typeof rowData === 'object') ? rowData[col] : rowData;
+                const val = colDef.parent
+                    ? (rowData && rowData[colDef.parent] ? rowData[colDef.parent][colDef.name] : undefined)
+                    : (rowData && typeof rowData === 'object' ? rowData[colDef.name] : rowData);
                 const num = parseFloat(val);
                 if (!isNaN(num)) {
                     if (num > max) max = num;
@@ -88,7 +117,7 @@ export class GridView {
                 }
             });
             if (hasNumeric && max > 0) {
-                columnMaxMap[col] = max;
+                columnMaxMap.set(colDef, max);
             }
         });
 
@@ -113,35 +142,78 @@ export class GridView {
 
         // ヘッダー
         const thead = document.createElement('thead');
-        const headerRow = document.createElement('tr');
+        const headerRow1 = document.createElement('tr');
+        const headerRow2 = document.createElement('tr');
 
         const indexTh = document.createElement('th');
-        indexTh.textContent = ''; // '#' を削除して空白にする
+        indexTh.textContent = '';
         indexTh.className = 'grid-index';
-        headerRow.appendChild(indexTh);
+        indexTh.setAttribute('rowspan', '2');
+        headerRow1.appendChild(indexTh);
 
-        columns.forEach(col => {
-            const th = document.createElement('th');
-            th.textContent = col;
-            const hClass = getHeaderClass(col);
-            if (hClass) th.classList.add(hClass);
-            if (col === activeKey) th.style.background = '#0078d4';
+        const processedParents = new Set();
+        columnDefs.forEach((colDef, idx) => {
+            if (colDef.parent === null) {
+                const th = document.createElement('th');
+                th.textContent = colDef.name;
+                th.setAttribute('rowspan', '2');
+                const hClass = getHeaderClass(colDef.name);
+                if (hClass) th.classList.add(hClass);
+                if (colDef.name === activeKey) th.style.background = '#0078d4';
 
-            // 幅の適用
-            if (this.columnWidths[col]) {
-                th.style.width = `${this.columnWidths[col]}px`;
-                th.style.minWidth = `${this.columnWidths[col]}px`;
+                // 幅の適用
+                const colId = colDef.name;
+                if (this.columnWidths[colId]) {
+                    th.style.width = `${this.columnWidths[colId]}px`;
+                    th.style.minWidth = `${this.columnWidths[colId]}px`;
+                }
+
+                // リサイズハンドル
+                const handle = document.createElement('div');
+                handle.className = 'col-resize-handle';
+                handle.dataset.col = colId;
+                th.dataset.colId = colId;
+                th.appendChild(handle);
+
+                headerRow1.appendChild(th);
+            } else {
+                if (!processedParents.has(colDef.parent)) {
+                    const parentTh = document.createElement('th');
+                    parentTh.textContent = colDef.parent;
+                    const subCols = columnDefs.filter(c => c.parent === colDef.parent);
+                    parentTh.setAttribute('colspan', subCols.length);
+                    if (colDef.parent === activeKey) parentTh.style.background = '#0078d4';
+                    headerRow1.appendChild(parentTh);
+                    processedParents.add(colDef.parent);
+                }
+
+                const th = document.createElement('th');
+                th.textContent = colDef.name;
+                const hClass = getHeaderClass(colDef.name);
+                if (hClass) th.classList.add(hClass);
+
+                // 幅の適用
+                const colId = `${colDef.parent}.${colDef.name}`;
+                if (this.columnWidths[colId]) {
+                    th.style.width = `${this.columnWidths[colId]}px`;
+                    th.style.minWidth = `${this.columnWidths[colId]}px`;
+                }
+
+                // リサイズハンドル
+                const handle = document.createElement('div');
+                handle.className = 'col-resize-handle';
+                handle.dataset.col = colId;
+                th.dataset.colId = colId;
+                th.appendChild(handle);
+
+                headerRow2.appendChild(th);
             }
-
-            // リサイズハンドルの追加
-            const handle = document.createElement('div');
-            handle.className = 'col-resize-handle';
-            handle.dataset.col = col;
-            th.appendChild(handle);
-
-            headerRow.appendChild(th);
         });
-        thead.appendChild(headerRow);
+
+        thead.appendChild(headerRow1);
+        if (headerRow2.children.length > 0) {
+            thead.appendChild(headerRow2);
+        }
         table.appendChild(thead);
 
         // ボディ
@@ -150,46 +222,59 @@ export class GridView {
             const tr = document.createElement('tr');
             tr.className = 'grid-row';
             tr.dataset.index = rowIndex;
-            tr.draggable = true; // 行全体をドラッグ可能に
+            tr.draggable = true;
 
             const indexTd = document.createElement('td');
             indexTd.textContent = rowIndex;
             indexTd.className = 'grid-index';
             tr.appendChild(indexTd);
 
-            columns.forEach(col => {
+            columnDefs.forEach(colDef => {
                 const td = document.createElement('td');
                 td.className = 'grid-cell';
-                const val = (rowData && typeof rowData === 'object') ? rowData[col] : rowData;
+
+                const val = colDef.parent
+                    ? (rowData && rowData[colDef.parent] ? rowData[colDef.parent][colDef.name] : undefined)
+                    : (rowData && typeof rowData === 'object' ? rowData[colDef.name] : rowData);
+
                 td.textContent = val !== undefined ? (typeof val === 'object' ? JSON.stringify(val) : val) : '';
 
-                // データバーの追加
+                // データバー
                 const num = parseFloat(val);
-                if (columnMaxMap[col] !== undefined && !isNaN(num)) {
-                    const max = columnMaxMap[col];
+                const max = columnMaxMap.get(colDef);
+                if (max !== undefined && !isNaN(num)) {
                     const percent = Math.min(100, Math.max(0, (num / max) * 100));
-
                     const bar = document.createElement('div');
-                    bar.className = `data-bar ${getColorClass(col)}`;
+                    bar.className = `data-bar ${getColorClass(colDef.name)}`;
                     bar.style.width = `${percent}%`;
                     td.classList.add('has-bar');
                     td.appendChild(bar);
                 }
 
-                // パスを保持
+                // パス
                 let cellPath = this.partsToPath(parentParts);
                 if (isArray) {
                     cellPath += `[${rowIndex}]`;
-                    if (typeof rowData === 'object') cellPath += `.${col}`;
+                    if (typeof rowData === 'object') {
+                        if (colDef.parent) {
+                            cellPath += `.${colDef.parent}.${colDef.name}`;
+                        } else {
+                            cellPath += `.${colDef.name}`;
+                        }
+                    }
                 } else {
-                    cellPath += `.${col}`;
+                    if (colDef.parent) {
+                        cellPath += `.${colDef.parent}.${colDef.name}`;
+                    } else {
+                        cellPath += `.${colDef.name}`;
+                    }
                 }
                 td.dataset.path = cellPath;
 
                 if (cellPath === this.selectedPath) {
                     td.classList.add('selected');
                 }
-                if (col === activeKey) {
+                if (colDef.name === activeKey || colDef.parent === activeKey) {
                     td.classList.add('active-col');
                 }
 
@@ -222,7 +307,7 @@ export class GridView {
         // 再描画せずに幅だけ更新（パフォーマンスのため）
         const ths = this.container.querySelectorAll('.grid-table th');
         ths.forEach(th => {
-            if (th.textContent === this.resizingCol) {
+            if (th.dataset.colId === this.resizingCol) {
                 th.style.width = `${newWidth}px`;
                 th.style.minWidth = `${newWidth}px`;
             }

@@ -122,9 +122,15 @@ body {
   z-index: 10;
   border: 1px solid #444;
   padding: 4px 8px;
-  text-align: left;
-  position: relative;
+  text-align: center;
+  /* position: relative;  <-- REMOVED: overlays sticky behavior */
   /* ハンドル配置用 */
+}
+
+/* 2行目ヘッダーの固定位置調整 */
+.grid-table thead tr:nth-child(2) th {
+  top: 29px;
+  /* 1行目の高さ(padding+border込み)に合わせる */
 }
 
 .col-resize-handle {

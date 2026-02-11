@@ -65,11 +65,11 @@ class App {
                 features: ["tree", "grid", "keyboard"]
             },
             monsters: [
-                { id: 1, name: "スライム", hp: 10, atk: 1, int: 0, def: 1 },
-                { id: 2, name: "ゴブリン", hp: 15, atk: 2, int: 0, def: 2 },
-                { id: 3, name: "オーク", hp: 20, atk: 3, int: 0, def: 2 },
-                { id: 4, name: "マンドラゴラ", hp: 30, atk: 5, int: 2, def: 3 },
-                { id: 5, name: "ワーウルフ", hp: 40, atk: 8, int: 1, def: 4 }
+                { id: 1, name: "スライム", stats: { hp: 10, atk: 1, int: 0, def: 1 } },
+                { id: 2, name: "ゴブリン", stats: { hp: 15, atk: 2, int: 0, def: 2 } },
+                { id: 3, name: "オーク", stats: { hp: 20, atk: 3, int: 0, def: 2 } },
+                { id: 4, name: "マンドラゴラ", stats: { hp: 30, atk: 5, int: 2, def: 3 } },
+                { id: 5, name: "ワーウルフ", stats: { hp: 40, atk: 8, int: 1, def: 4 } }
             ]
         };
         this.model.setData(demoData);

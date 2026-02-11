@@ -190,8 +190,15 @@ body {
 }
 
 .grid-table th.header-drag-over {
-  border-left: 2px solid #0078d4;
   background: #383838;
+}
+
+.grid-table th.header-drag-over-left {
+  border-left: 2px solid #0078d4;
+}
+
+.grid-table th.header-drag-over-right {
+  border-right: 2px solid #0078d4;
 }
 
 .grid-toggle {

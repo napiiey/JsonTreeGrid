@@ -277,19 +277,31 @@ export class GridView {
                         // 親パスが一致する場合のみ許可
                         const data = document.querySelector('.dragging-col');
                         if (data) {
-                            // 簡易的な同一階層チェック（厳密にはdropで検査）
-                            th.classList.add('header-drag-over');
+                            const rect = th.getBoundingClientRect();
+                            const mid = rect.left + rect.width / 2;
+                            if (e.clientX < mid) {
+                                th.classList.add('header-drag-over-left');
+                                th.classList.remove('header-drag-over-right');
+                            } else {
+                                th.classList.add('header-drag-over-right');
+                                th.classList.remove('header-drag-over-left');
+                            }
+                            th.classList.remove('header-drag-over'); // 古いクラス削除
                             e.dataTransfer.dropEffect = 'move';
                         }
                     };
 
                     content.ondragleave = (e) => {
-                        th.classList.remove('header-drag-over');
+                        th.classList.remove('header-drag-over-left');
+                        th.classList.remove('header-drag-over-right');
                     };
 
                     content.ondrop = (e) => {
                         e.preventDefault();
-                        th.classList.remove('header-drag-over');
+                        const isRight = th.classList.contains('header-drag-over-right');
+                        th.classList.remove('header-drag-over-left');
+                        th.classList.remove('header-drag-over-right');
+
                         const rawOpt = e.dataTransfer.getData('application/json');
                         if (!rawOpt) return;
 
@@ -320,7 +332,7 @@ export class GridView {
                                 // context.parentParts + srcParentPath
 
                                 const fullParentPath = [...parentParts, ...srcParentPath];
-                                this.model.moveKey(fullParentPath, srcData.key, targetKey);
+                                this.model.moveKey(fullParentPath, srcData.key, targetKey, isRight);
                             }
                         } catch (err) {
                             console.error(err);
@@ -329,7 +341,8 @@ export class GridView {
 
                     content.ondragend = () => {
                         document.querySelectorAll('.dragging-col').forEach(el => el.classList.remove('dragging-col'));
-                        document.querySelectorAll('.header-drag-over').forEach(el => el.classList.remove('header-drag-over'));
+                        document.querySelectorAll('.header-drag-over-left').forEach(el => el.classList.remove('header-drag-over-left'));
+                        document.querySelectorAll('.header-drag-over-right').forEach(el => el.classList.remove('header-drag-over-right'));
                     };
 
                     th.appendChild(content);

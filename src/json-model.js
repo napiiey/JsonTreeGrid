@@ -162,8 +162,9 @@ export class JsonModel extends EventTarget {
      * オブジェクト内のキーの順序を変更する
      * 同じ親を持つ兄弟キー同士でのみ移動可能
      */
-    moveKey(parentPathParts, oldKey, newKey) {
-        if (oldKey === newKey) return;
+    moveKey(parentPathParts, oldKey, newKey, insertAfter = false) {
+        if (oldKey === newKey && !insertAfter) return; // 単純なリネーム目的のAPIではないが、ガード
+        if (oldKey === newKey && insertAfter) return; // 同じ場所への移動は何もしない
 
         // 再帰的に適用する関数
         const reorderInObject = (obj) => {
@@ -171,11 +172,22 @@ export class JsonModel extends EventTarget {
                 if (Object.prototype.hasOwnProperty.call(obj, oldKey) && Object.prototype.hasOwnProperty.call(obj, newKey)) {
                     const keys = Object.keys(obj);
                     const oldIndex = keys.indexOf(oldKey);
-                    const newIndex = keys.indexOf(newKey);
-                    if (oldIndex === -1 || newIndex === -1) return;
 
-                    // 配列操作で順序を入れ替える
+                    // 先に削除
                     const item = keys.splice(oldIndex, 1)[0];
+
+                    // 削除後の配列で新しいインデックスを検索
+                    let newIndex = keys.indexOf(newKey);
+                    if (newIndex === -1) {
+                        // エラー回復: 元に戻す
+                        keys.splice(oldIndex, 0, item);
+                        return;
+                    }
+
+                    if (insertAfter) {
+                        newIndex++;
+                    }
+
                     keys.splice(newIndex, 0, item);
 
                     const newObj = {};

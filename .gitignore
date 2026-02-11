@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.vscode/
+.DS_Store
+*.local
+.env*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.temp/
+.cache/
+.tauri/
+src-tauri/target/
+src-tauri/gen/

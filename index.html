@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JsonTreeGrid</title>
+</head>
+
+<body>
+  <div id="app">
+    <header class="toolbar">
+      <button id="open-btn">開く</button>
+      <button id="save-btn">保存</button>
+      <span id="file-info">新規ファイル</span>
+    </header>
+    <main class="editor-container">
+      <div id="tree-panel" class="panel">
+        <div id="tree-container"></div>
+      </div>
+      <div id="resizer"></div>
+      <div id="grid-panel" class="panel">
+        <div id="grid-container"></div>
+      </div>
+    </main>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>

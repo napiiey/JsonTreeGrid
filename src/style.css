@@ -1,0 +1,157 @@
+:root {
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #1a1a1a;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.toolbar {
+  height: 40px;
+  background: #2a2a2a;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 10px;
+  border-bottom: 1px solid #333;
+}
+
+.editor-container {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+}
+
+.panel {
+  height: 100%;
+  overflow: auto;
+}
+
+#tree-panel {
+  width: 300px;
+  border-right: 1px solid #333;
+  min-width: 150px;
+}
+
+#resizer {
+  width: 4px;
+  background: #333;
+  cursor: col-resize;
+  transition: background 0.2s;
+}
+
+#resizer:hover {
+  background: #0078d4;
+}
+
+#grid-panel {
+  flex: 1;
+  min-width: 300px;
+  background: #1e1e1e;
+}
+
+/* Tree Styles */
+#tree-container {
+  padding: 10px;
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.tree-node {
+  white-space: nowrap;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.tree-node:hover {
+  background: #333;
+}
+
+.tree-node.selected {
+  background: #004a8c;
+}
+
+.toggle-icon {
+  display: inline-block;
+  width: 16px;
+  text-align: center;
+}
+
+/* Grid Styles */
+#grid-container {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+}
+
+.grid-table {
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 100%;
+}
+
+.grid-table th {
+  background: #2d2d2d;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border: 1px solid #444;
+  padding: 4px 8px;
+  text-align: left;
+}
+
+.grid-table td {
+  border: 1px solid #333;
+  padding: 4px 8px;
+  min-width: 100px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.grid-row:hover {
+  background: #2a2a2a;
+}
+
+.grid-cell.selected {
+  outline: 2px solid #0078d4;
+  outline-offset: -2px;
+  background: #263545;
+}
+
+.grid-cell.active-col {
+  background: rgba(0, 120, 212, 0.1);
+}
+
+.grid-cell input {
+  width: 100%;
+  background: transparent;
+  color: white;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: inherit;
+}

@@ -80,4 +80,38 @@ export class JsonModel extends EventTarget {
 
         return { parent, key, parentParts };
     }
+
+    /**
+     * 指定されたパスが含まれる最近接の配列コンテキストを取得する
+     */
+    getGridContext(path) {
+        const parts = this.parsePath(path);
+        if (parts.length === 0) return this.getParentAndKey(path);
+
+        // 末尾から遡って、最初に見つかる「数値インデックス」を探す
+        // そのインデックスの親が「最近接の配列」
+        for (let i = parts.length - 1; i >= 0; i--) {
+            if (typeof parts[i] === 'number') {
+                const arrayParts = parts.slice(0, i);
+                const array = this.getValueByPath(arrayParts);
+                if (Array.isArray(array)) {
+                    return {
+                        rows: array,
+                        parentParts: arrayParts,
+                        relativePath: parts.slice(i + 1), // インデックスより後のパス（例: .name）
+                        isArray: true
+                    };
+                }
+            }
+        }
+
+        // 配列が見つからない場合は通常の親オブジェクトを返す
+        const pk = this.getParentAndKey(path);
+        return {
+            rows: [pk.parent],
+            parentParts: pk.parentParts,
+            relativePath: [pk.key],
+            isArray: false
+        };
+    }
 }

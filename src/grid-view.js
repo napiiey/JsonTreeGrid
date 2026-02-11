@@ -14,7 +14,7 @@ export class GridView {
         this.container.addEventListener('dblclick', (e) => {
             const cell = e.target.closest('.grid-cell');
             if (!cell) return;
-            this.startEdit(cell);
+            this.startEdit(cell, { append: true });
         });
 
         window.addEventListener('keydown', (e) => this.handleKeyDown(e));
@@ -29,23 +29,21 @@ export class GridView {
         this.container.innerHTML = '';
         if (!this.selectedPath) return;
 
-        const { parent, key, parentParts } = this.model.getParentAndKey(this.selectedPath);
-        if (!parent) return;
+        const context = this.model.getGridContext(this.selectedPath);
+        const { rows, parentParts, relativePath, isArray } = context;
+        if (!rows) return;
 
-        const isArrayParent = Array.isArray(parent);
+        const activeKey = isArray ? (relativePath[0] || '') : relativePath[0];
+
         const table = document.createElement('table');
         table.className = 'grid-table';
 
         // カラムの決定
         let columns = [];
-        let rows = [];
-
-        if (isArrayParent) {
-            // 親が配列の場合：配列の全要素を行にする
-            rows = parent;
-            // 全要素の全キーを網羅してカラムにする
+        if (isArray) {
+            // 配列の場合：全要素の全キーを網羅してカラムにする
             const keySet = new Set();
-            parent.forEach(item => {
+            rows.forEach(item => {
                 if (item !== null && typeof item === 'object') {
                     Object.keys(item).forEach(k => keySet.add(k));
                 }
@@ -53,9 +51,8 @@ export class GridView {
             columns = Array.from(keySet);
             if (columns.length === 0) columns = ['value']; // プリミティブ配列の場合
         } else {
-            // 親がオブジェクトの場合：選択ノードとその兄弟を表示（1行のみ）
-            rows = [parent];
-            columns = Object.keys(parent);
+            // 親がオブジェクトの場合：そのオブジェクトを表示（rows=[obj]）
+            columns = Object.keys(rows[0] || {});
         }
 
         // ヘッダー
@@ -69,7 +66,7 @@ export class GridView {
         columns.forEach(col => {
             const th = document.createElement('th');
             th.textContent = col;
-            if (col === key) th.style.background = '#0078d4';
+            if (col === activeKey) th.style.background = '#0078d4';
             headerRow.appendChild(th);
         });
         thead.appendChild(headerRow);
@@ -89,24 +86,22 @@ export class GridView {
                 const td = document.createElement('td');
                 td.className = 'grid-cell';
                 const val = (rowData && typeof rowData === 'object') ? rowData[col] : rowData;
-                td.textContent = val !== undefined ? val : '';
+                td.textContent = val !== undefined ? (typeof val === 'object' ? JSON.stringify(val) : val) : '';
 
                 // パスを保持
-                let cellPath = '';
-                if (isArrayParent) {
-                    const base = this.partsToPath(parentParts);
-                    cellPath = base ? `${base}[${rowIndex}]` : `root[${rowIndex}]`;
+                let cellPath = this.partsToPath(parentParts);
+                if (isArray) {
+                    cellPath += `[${rowIndex}]`;
                     if (typeof rowData === 'object') cellPath += `.${col}`;
                 } else {
-                    const base = this.partsToPath(parentParts);
-                    cellPath = base ? `${base}.${col}` : `root.${col}`;
+                    cellPath += `.${col}`;
                 }
                 td.dataset.path = cellPath;
 
                 if (cellPath === this.selectedPath) {
                     td.classList.add('selected');
                 }
-                if (col === key) {
+                if (col === activeKey) {
                     td.classList.add('active-col');
                 }
 
@@ -134,32 +129,61 @@ export class GridView {
         // ツリー側も同期させたい場合はここに通知
     }
 
-    startEdit(cell) {
+    startEdit(cell, options = {}) {
         if (this.editingCell) this.stopEdit();
 
         this.editingCell = cell;
         const originalValue = cell.textContent;
         const input = document.createElement('input');
-        input.value = originalValue;
+        input.value = options.initialValue !== undefined ? options.initialValue : originalValue;
         cell.textContent = '';
         cell.appendChild(input);
         input.focus();
-        input.select();
 
-        input.addEventListener('blur', () => this.stopEdit(true));
+        if (options.append || options.initialValue !== undefined) {
+            // 末尾にカーソルを置く（追記または上書き開始時）
+            input.setSelectionRange(input.value.length, input.value.length);
+        } else {
+            // 全選択（通常編集開始時）
+            input.select();
+        }
+
+        input.addEventListener('blur', () => {
+            if (this.editingCell === cell) this.stopEdit(true);
+        });
         input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') this.stopEdit(true);
-            if (e.key === 'Escape') this.stopEdit(false);
+            if (e.key === 'Enter') {
+                this.stopEdit(true, true);
+                e.preventDefault();
+            }
+            if (e.key === 'Escape') {
+                this.stopEdit(false);
+                e.preventDefault();
+            }
         });
     }
 
-    stopEdit(save = true) {
+    stopEdit(save = true, moveDown = false) {
         if (!this.editingCell) return;
-        const input = this.editingCell.querySelector('input');
+        const cell = this.editingCell;
+        const input = cell.querySelector('input');
         const newValue = input.value;
-        const path = this.editingCell.dataset.path;
+        const path = cell.dataset.path;
+
+        let nextPath = null;
+        if (moveDown) {
+            const tr = cell.parentElement;
+            const nextRow = tr.nextElementSibling;
+            if (nextRow) {
+                const cells = Array.from(tr.querySelectorAll('.grid-cell'));
+                const colIndex = cells.indexOf(cell);
+                const nextCell = nextRow.querySelectorAll('.grid-cell')[colIndex];
+                if (nextCell) nextPath = nextCell.dataset.path;
+            }
+        }
 
         if (save) {
+            if (nextPath) this.selectedPath = nextPath;
             this.model.updateValue(path, newValue);
         } else {
             this.render(); // 元に戻す
@@ -175,6 +199,13 @@ export class GridView {
 
         if (e.key === 'Enter') {
             this.startEdit(selected);
+            e.preventDefault();
+            return;
+        }
+
+        // 上書き入力 (一文字の入力の場合)
+        if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+            this.startEdit(selected, { initialValue: e.key });
             e.preventDefault();
             return;
         }

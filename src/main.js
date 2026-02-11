@@ -58,7 +58,7 @@ class App {
 
         // 初期データの読み込み（デモ用）
         const demoData = {
-            project: "JSON Tree Grid",
+            project: "JsonTreeGrid",
             version: 1.0,
             settings: {
                 theme: "dark",

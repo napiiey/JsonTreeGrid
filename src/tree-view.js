@@ -16,6 +16,12 @@ export class TreeView {
                 this.select(path);
             }
         });
+
+        this.container.addEventListener('dblclick', (e) => {
+            const nodeEl = e.target.closest('.tree-node');
+            if (!nodeEl) return;
+            this.toggle(nodeEl.dataset.path);
+        });
     }
 
     toggle(path) {
@@ -28,9 +34,19 @@ export class TreeView {
     }
 
     select(path) {
+        if (this.selectedPath === path) return;
+
+        // 以前の選択を解除
+        const prevSelected = this.container.querySelector('.tree-node.selected');
+        if (prevSelected) prevSelected.classList.remove('selected');
+
         this.selectedPath = path;
+
+        // 新しい選択を適用
+        const nextSelected = this.container.querySelector(`.tree-node[data-path="${CSS.escape(path)}"]`);
+        if (nextSelected) nextSelected.classList.add('selected');
+
         this.model.setSelection(path);
-        this.render();
     }
 
     render() {
@@ -50,6 +66,7 @@ export class TreeView {
         const nodeEl = document.createElement('div');
         nodeEl.className = `tree-node ${this.selectedPath === path ? 'selected' : ''}`;
         nodeEl.style.paddingLeft = `${depth * 16}px`;
+        nodeEl.style.userSelect = 'none'; // テキスト選択を防止してダブルクリックしやすくする
         nodeEl.dataset.path = path;
 
         const toggle = document.createElement('span');

@@ -27,14 +27,70 @@ body {
   height: 100%;
 }
 
-.toolbar {
-  height: 40px;
+.menubar {
+  height: 36px;
   background: #2a2a2a;
   display: flex;
   align-items: center;
-  padding: 0 10px;
-  gap: 10px;
+  padding: 0 4px;
   border-bottom: 1px solid #333;
+  font-size: 13px;
+  user-select: none;
+}
+
+/* メニュー共通 */
+.menu-item,
+.menu-label {
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.menu-item:hover,
+.menu-group:hover .menu-label,
+.menu-group.active .menu-label {
+  background: #3c3c3c;
+}
+
+/* ドロップダウンメニュー */
+.menu-group {
+  position: relative;
+}
+
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  min-width: 150px;
+  z-index: 1000;
+  padding: 4px 0;
+  border-radius: 0 0 4px 4px;
+}
+
+.menu-group.active .dropdown-menu {
+  display: block;
+}
+
+.dropdown-item {
+  padding: 6px 12px;
+  cursor: pointer;
+  color: #ddd;
+}
+
+.dropdown-item:hover {
+  background: #0078d4;
+  color: white;
+}
+
+#file-info {
+  margin-left: auto;
+  color: #888;
+  font-size: 12px;
+  padding-right: 8px;
 }
 
 .editor-container {

@@ -48,12 +48,45 @@ class App {
         });
 
         // ツールバーのイベント
-        document.getElementById('open-btn').addEventListener('click', () => {
-            this.openFile();
+        if (document.getElementById('open-btn')) {
+            document.getElementById('open-btn').addEventListener('click', () => this.openFile());
+        }
+        if (document.getElementById('save-btn')) {
+            document.getElementById('save-btn').addEventListener('click', () => this.saveFile());
+        }
+
+        // --- メニューバーのイベント制御 ---
+        // 1. メニューグループのトグル
+        document.querySelectorAll('.menu-group').forEach(group => {
+            group.querySelector('.menu-label').addEventListener('click', (e) => {
+                e.stopPropagation();
+                // 既に開いている他のメニューを閉じる
+                document.querySelectorAll('.menu-group.active').forEach(activeGroup => {
+                    if (activeGroup !== group) activeGroup.classList.remove('active');
+                });
+                group.classList.toggle('active');
+            });
         });
 
-        document.getElementById('save-btn').addEventListener('click', () => {
-            this.saveFile();
+        // 2. ドロップダウン内項目のクリック
+        if (document.getElementById('menu-open')) {
+            document.getElementById('menu-open').addEventListener('click', (e) => {
+                e.stopPropagation(); // メニューを閉じる前に処理
+                this.closeAllMenus();
+                this.openFile();
+            });
+        }
+        if (document.getElementById('menu-save')) {
+            document.getElementById('menu-save').addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.closeAllMenus();
+                this.saveFile();
+            });
+        }
+
+        // 3. メニュー外クリックで閉じる
+        document.addEventListener('click', () => {
+            this.closeAllMenus();
         });
 
         // 初期データの読み込み（デモ用）
@@ -73,6 +106,10 @@ class App {
             ]
         };
         this.model.setData(demoData);
+    }
+
+    closeAllMenus() {
+        document.querySelectorAll('.menu-group.active').forEach(g => g.classList.remove('active'));
     }
 
     async openFile() {

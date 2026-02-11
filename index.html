@@ -10,11 +10,19 @@
 
 <body>
   <div id="app">
-    <header class="toolbar">
-      <button id="open-btn">開く</button>
-      <button id="save-btn">保存</button>
+    <nav class="menubar">
+      <div class="menu-group" id="file-menu-group">
+        <div class="menu-label">ファイル</div>
+        <div class="dropdown-menu">
+          <div class="dropdown-item" id="menu-open">開く...</div>
+          <div class="dropdown-item" id="menu-save">保存</div>
+        </div>
+      </div>
+      <div class="menu-item">編集</div>
+      <div class="menu-item">選択</div>
+      <div class="menu-item">表示</div>
       <span id="file-info">新規ファイル</span>
-    </header>
+    </nav>
     <main class="editor-container">
       <div id="tree-panel" class="panel">
         <div id="tree-container"></div>

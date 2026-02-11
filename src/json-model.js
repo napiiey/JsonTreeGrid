@@ -92,6 +92,73 @@ export class JsonModel extends EventTarget {
     }
 
     /**
+     * オブジェクトのキー名を変更する。
+     * baseParts で指定されたコンテキスト（配列または単一オブジェクト）内の
+     * 各要素に対して、subPathParts を辿った先にある oldKey を newKey に変更する。
+     */
+    renameKey(baseParts, subPathParts, oldKey, newKey) {
+        if (oldKey === newKey || !newKey) return;
+        const rootTarget = this.getValueByPath(baseParts);
+        if (!rootTarget) return;
+
+        const renameOne = (obj) => {
+            if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+                if (Object.prototype.hasOwnProperty.call(obj, oldKey)) {
+                    const keys = Object.keys(obj);
+                    const newObj = {};
+                    keys.forEach(k => {
+                        if (k === oldKey) newObj[newKey] = obj[oldKey];
+                        else newObj[k] = obj[k];
+                    });
+                    keys.forEach(k => delete obj[k]);
+                    Object.assign(obj, newObj);
+                }
+            }
+        };
+
+        const traverseAndRename = (current, path) => {
+            if (path.length === 0) {
+                if (Array.isArray(current)) {
+                    current.forEach(item => renameOne(item));
+                } else {
+                    renameOne(current);
+                }
+                return;
+            }
+
+            const first = path[0];
+            const rest = path.slice(1);
+
+            // インデックスの判定（数値または "[0]" 形式の文字列）
+            let index = -1;
+            if (typeof first === 'number') index = first;
+            else if (typeof first === 'string' && first.startsWith('[') && first.endsWith(']')) {
+                index = parseInt(first.slice(1, -1), 10);
+            }
+
+            if (index !== -1) {
+                // インデックス（[0]等）に遭遇した場合、意図としては「その階層の全要素」を対象とする
+                if (Array.isArray(current)) {
+                    current.forEach(item => traverseAndRename(item, rest));
+                } else if (current && current[index] !== undefined) {
+                    traverseAndRename(current[index], rest);
+                }
+            } else {
+                if (Array.isArray(current)) {
+                    // 配列だがインデックス指定でない場合（例: コンテキスト自体が配列）、
+                    // 全要素に対して同じパスで再帰を試みる
+                    current.forEach(item => traverseAndRename(item, path));
+                } else if (current && typeof current === 'object' && current[first] !== undefined) {
+                    traverseAndRename(current[first], rest);
+                }
+            }
+        };
+
+        traverseAndRename(rootTarget, subPathParts);
+        this.dispatchEvent(new CustomEvent('dataChange'));
+    }
+
+    /**
      * 指定されたパスが含まれる最近接の配列コンテキストを取得する
      */
     getGridContext(path) {

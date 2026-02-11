@@ -255,6 +255,14 @@ export class GridView {
                     content.textContent = segment;
                     th.appendChild(content);
 
+                    // ダブルクリックで名前変更
+                    if (!segment.startsWith('[')) { // 配列インデックスは除外
+                        th.ondblclick = (e) => {
+                            e.stopPropagation();
+                            this.startHeaderEdit(th, segment, parentParts, col.path.slice(0, d));
+                        };
+                    }
+
                     // colspan の計算
                     let colspan = 1;
                     for (let j = i + 1; j < columnDefs.length; j++) {
@@ -631,5 +639,44 @@ export class GridView {
             nextCell.scrollIntoView({ block: 'nearest', inline: 'nearest' });
             e.preventDefault();
         }
+    }
+
+    // --- ヘッダーの名前変更 ---
+    startHeaderEdit(th, oldKey, baseParts, subPathParts) {
+        const content = th.querySelector('.th-content');
+        const originalText = content.textContent;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = originalText;
+        input.className = 'header-edit-input';
+
+        content.textContent = '';
+        content.appendChild(input);
+        input.focus();
+        input.select();
+
+        let finished = false;
+        const finish = (save) => {
+            if (finished) return;
+            finished = true;
+            const newKey = input.value.trim();
+            if (save && newKey && newKey !== oldKey) {
+                this.model.renameKey(baseParts, subPathParts, oldKey, newKey);
+            } else {
+                content.textContent = originalText;
+            }
+        };
+
+        input.onblur = () => finish(true);
+        input.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                finish(true);
+                e.preventDefault();
+            }
+            if (e.key === 'Escape') {
+                finish(false);
+                e.preventDefault();
+            }
+        };
     }
 }

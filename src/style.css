@@ -223,6 +223,18 @@ body {
   width: 100%;
 }
 
+.header-edit-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #444;
+  color: #fff;
+  border: 1px solid #0078d4;
+  padding: 0 4px;
+  font-size: 13px;
+  outline: none;
+  font-weight: normal;
+}
+
 /* 2行目ヘッダーの固定位置調整 */
 .grid-table thead tr:nth-child(2) th {
   top: 29px;

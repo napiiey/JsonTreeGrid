@@ -150,12 +150,14 @@ body {
   border-bottom: none !important;
   /* 行間の線を消す */
   text-align: right;
-  min-width: 25px !important;
-  /* さらに狭く */
-  padding-right: 6px !important;
-  /* 余白を詰める */
+  width: 1px !important;
+  /* コンテンツに合わせて収縮させる */
+  min-width: unset !important;
+  padding: 4px 6px 4px 2px !important;
+  /* 左右の余白を最小化 */
   user-select: none;
   font-size: 11px;
+  white-space: nowrap;
 }
 
 .grid-cell.active-col {

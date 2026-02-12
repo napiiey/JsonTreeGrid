@@ -285,8 +285,12 @@ body {
   background: #333;
 }
 
-.grid-row.drag-over {
+.grid-row.drag-over-top {
   border-top: 2px solid #0078d4;
+}
+
+.grid-row.drag-over-bottom {
+  border-bottom: 2px solid #0078d4;
 }
 
 .grid-row:hover {

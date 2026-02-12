@@ -657,16 +657,22 @@ export class GridView {
         if (!tr) return;
 
         const index = parseInt(tr.dataset.index);
-        if (index === this.draggedRowIndex) return;
+        if (index === this.draggedRowIndex) {
+            this.container.querySelectorAll('.grid-row').forEach(r => r.classList.remove('drag-over-top', 'drag-over-bottom'));
+            return;
+        }
 
-        this.dragOverRowIndex = index;
-        this.container.querySelectorAll('.grid-row').forEach(r => r.classList.remove('drag-over'));
-        tr.classList.add('drag-over');
+        const rect = tr.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        const isBottom = e.clientY > midY;
+
+        this.container.querySelectorAll('.grid-row').forEach(r => r.classList.remove('drag-over-top', 'drag-over-bottom'));
+        tr.classList.add(isBottom ? 'drag-over-bottom' : 'drag-over-top');
     }
 
     handleDragLeave(e) {
         const tr = e.target.closest('.grid-row');
-        if (tr) tr.classList.remove('drag-over');
+        if (tr) tr.classList.remove('drag-over-top', 'drag-over-bottom');
     }
 
     handleDrop(e) {
@@ -674,13 +680,23 @@ export class GridView {
         const tr = e.target.closest('.grid-row');
         if (!tr || this.draggedRowIndex === null) return;
 
-        const toIndex = parseInt(tr.dataset.index);
+        const isBottom = tr.classList.contains('drag-over-bottom');
+        let toIndex = parseInt(tr.dataset.index);
         const fromIndex = this.draggedRowIndex;
+
+        // 下側にドロップする場合、挿入位置は +1
+        if (isBottom) {
+            toIndex++;
+        }
+
+        // 自分の後ろに移動する場合、splice(from, 1)した後にインデックスがズレるのを補正
+        if (fromIndex < toIndex) {
+            toIndex--;
+        }
 
         if (fromIndex !== toIndex) {
             const context = this.model.getGridContext(this.selectedPath);
             const arrayPath = this.partsToPath(context.parentParts);
-            console.log(`Move: ${fromIndex} -> ${toIndex}, arrayPath: ${arrayPath}`);
             this.model.moveArrayElement(arrayPath, fromIndex, toIndex);
         }
 
@@ -695,7 +711,7 @@ export class GridView {
         this.draggedRowIndex = null;
         this.dragOverRowIndex = null;
         this.container.querySelectorAll('.grid-row').forEach(r => {
-            r.classList.remove('dragging', 'drag-over');
+            r.classList.remove('dragging', 'drag-over-top', 'drag-over-bottom');
         });
     }
 

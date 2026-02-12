@@ -91,6 +91,52 @@ export class JsonModel extends EventTarget {
         }
     }
 
+    insertArrayElement(path, index) {
+        const parts = this.parsePath(path);
+        const array = this.getValueByPath(parts);
+        if (Array.isArray(array)) {
+            let newItem = null;
+            if (array.length > 0) {
+                const first = array[0];
+                if (first !== null && typeof first === 'object' && !Array.isArray(first)) {
+                    newItem = {};
+                    Object.keys(first).forEach(key => {
+                        const val = first[key];
+                        if (typeof val === 'number') newItem[key] = 0;
+                        else if (typeof val === 'boolean') newItem[key] = false;
+                        else if (typeof val === 'string') newItem[key] = "";
+                        else if (Array.isArray(val)) newItem[key] = [];
+                        else if (val !== null && typeof val === 'object') newItem[key] = {};
+                        else newItem[key] = null;
+                    });
+                } else if (Array.isArray(first)) {
+                    newItem = [];
+                } else if (typeof first === 'number') {
+                    newItem = 0;
+                } else if (typeof first === 'boolean') {
+                    newItem = false;
+                } else if (typeof first === 'string') {
+                    newItem = "";
+                } else {
+                    newItem = null;
+                }
+            } else {
+                newItem = {};
+            }
+            array.splice(index, 0, newItem);
+            this.dispatchEvent(new CustomEvent('dataChange'));
+        }
+    }
+
+    removeArrayElement(path, index) {
+        const parts = this.parsePath(path);
+        const array = this.getValueByPath(parts);
+        if (Array.isArray(array)) {
+            array.splice(index, 1);
+            this.dispatchEvent(new CustomEvent('dataChange'));
+        }
+    }
+
     /**
      * オブジェクトのキー名を変更する。
      * baseParts で指定されたコンテキスト（配列または単一オブジェクト）内の

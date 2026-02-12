@@ -19,6 +19,9 @@ export class GridView {
         this.draggedRowIndex = null;
         this.dragOverRowIndex = null;
 
+        // コンテキストメニュー用
+        this.contextMenu = null;
+
         this.container.addEventListener('click', (e) => {
             const cell = e.target.closest('.grid-cell');
             if (!cell) return;
@@ -448,6 +451,9 @@ export class GridView {
             const indexTd = document.createElement('td');
             indexTd.textContent = rowIndex;
             indexTd.className = 'grid-index';
+            if (isArray) {
+                indexTd.oncontextmenu = (e) => this.showIndexContextMenu(e, rowIndex, parentParts);
+            }
             tr.appendChild(indexTd);
 
             columnDefs.forEach(colDef => {
@@ -770,5 +776,67 @@ export class GridView {
                 e.preventDefault();
             }
         };
+    }
+
+    showIndexContextMenu(e, rowIndex, parentParts) {
+        e.preventDefault();
+        this.removeContextMenu();
+
+        const menu = document.createElement('div');
+        menu.className = 'context-menu';
+        menu.style.left = `${e.pageX}px`;
+        menu.style.top = `${e.pageY}px`;
+
+        const items = [
+            {
+                label: '上に1行挿入',
+                action: () => {
+                    const arrayPath = this.partsToPath(parentParts);
+                    this.model.insertArrayElement(arrayPath, rowIndex);
+                }
+            },
+            {
+                label: '下に1行挿入',
+                action: () => {
+                    const arrayPath = this.partsToPath(parentParts);
+                    this.model.insertArrayElement(arrayPath, rowIndex + 1);
+                }
+            },
+            {
+                label: 'この行を削除',
+                action: () => {
+                    const arrayPath = this.partsToPath(parentParts);
+                    this.model.removeArrayElement(arrayPath, rowIndex);
+                }
+            }
+        ];
+
+        items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'context-menu-item';
+            div.textContent = item.label;
+            div.onclick = (ev) => {
+                ev.stopPropagation();
+                item.action();
+                this.removeContextMenu();
+            };
+            menu.appendChild(div);
+        });
+
+        document.body.appendChild(menu);
+        this.contextMenu = menu;
+
+        const closeMenu = () => {
+            this.removeContextMenu();
+            window.removeEventListener('click', closeMenu);
+        };
+        setTimeout(() => window.addEventListener('click', closeMenu), 0);
+    }
+
+    removeContextMenu() {
+        if (this.contextMenu) {
+            this.contextMenu.remove();
+            this.contextMenu = null;
+        }
     }
 }

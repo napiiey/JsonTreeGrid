@@ -356,6 +356,7 @@ export class GridView {
                             e.stopPropagation();
                             this.startHeaderEdit(th, segment, parentParts, col.path.slice(0, d));
                         };
+                        th.oncontextmenu = (e) => this.showHeaderContextMenu(e, segment, parentParts, col.path.slice(0, d));
                     }
 
                     // colspan の計算
@@ -780,13 +781,6 @@ export class GridView {
 
     showIndexContextMenu(e, rowIndex, parentParts) {
         e.preventDefault();
-        this.removeContextMenu();
-
-        const menu = document.createElement('div');
-        menu.className = 'context-menu';
-        menu.style.left = `${e.pageX}px`;
-        menu.style.top = `${e.pageY}px`;
-
         const items = [
             {
                 label: '上に1行挿入',
@@ -810,6 +804,45 @@ export class GridView {
                 }
             }
         ];
+        this.showContextMenu(e, items);
+    }
+
+    showHeaderContextMenu(e, key, parentParts, subPathParts) {
+        e.preventDefault();
+        e.stopPropagation();
+        const items = [
+            {
+                label: '左に列を挿入',
+                action: () => {
+                    const fullParentPath = [...parentParts, ...subPathParts];
+                    this.model.insertKey(fullParentPath, key, false);
+                }
+            },
+            {
+                label: '右に列を挿入',
+                action: () => {
+                    const fullParentPath = [...parentParts, ...subPathParts];
+                    this.model.insertKey(fullParentPath, key, true);
+                }
+            },
+            {
+                label: 'この列を削除',
+                action: () => {
+                    const fullParentPath = [...parentParts, ...subPathParts];
+                    this.model.removeKey(fullParentPath, key);
+                }
+            }
+        ];
+        this.showContextMenu(e, items);
+    }
+
+    showContextMenu(e, items) {
+        this.removeContextMenu();
+
+        const menu = document.createElement('div');
+        menu.className = 'context-menu';
+        menu.style.left = `${e.pageX}px`;
+        menu.style.top = `${e.pageY}px`;
 
         items.forEach(item => {
             const div = document.createElement('div');
@@ -829,8 +862,12 @@ export class GridView {
         const closeMenu = () => {
             this.removeContextMenu();
             window.removeEventListener('click', closeMenu);
+            window.removeEventListener('contextmenu', closeMenu);
         };
-        setTimeout(() => window.addEventListener('click', closeMenu), 0);
+        setTimeout(() => {
+            window.addEventListener('click', closeMenu);
+            window.addEventListener('contextmenu', closeMenu);
+        }, 0);
     }
 
     removeContextMenu() {

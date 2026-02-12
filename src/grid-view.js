@@ -630,7 +630,7 @@ export class GridView {
         document.querySelectorAll('.grid-cell.selected').forEach(c => c.classList.remove('selected'));
         cell.classList.add('selected');
         this.selectedPath = cell.dataset.path;
-        // ツリー側も同期させたい場合はここに通知
+        this.model.setSelection(this.selectedPath);
     }
 
     startEdit(cell, options = {}) {

@@ -411,3 +411,9 @@ body {
   background: #0078d4;
   color: white;
 }
+
+.menu-divider {
+  height: 1px;
+  background: #444;
+  margin: 4px 0;
+}

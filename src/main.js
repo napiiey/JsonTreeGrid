@@ -68,7 +68,11 @@ class App {
             'menu-save': () => this.saveFile(),
             'menu-save-as': () => this.saveFileAs(),
             'menu-undo': () => this.model.undo(),
-            'menu-redo': () => this.model.redo()
+            'menu-redo': () => this.model.redo(),
+            'menu-cut': () => this.cutSelection(),
+            'menu-copy': () => this.copySelection(),
+            'menu-paste': () => this.pasteSelection(),
+            'menu-delete': () => this.deleteSelection()
         };
 
         Object.keys(menuActions).forEach(id => {
@@ -87,20 +91,32 @@ class App {
             this.closeAllMenus();
         });
 
-        // 4. ショートカットキー (Undo/Redo)
+        // 4. ショートカットキー
         document.addEventListener('keydown', (e) => {
+            // 入力中（inputやtextarea）はショートカットを無効化
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
             if (e.ctrlKey || e.metaKey) {
-                if (e.key.toLowerCase() === 'z') {
+                const key = e.key.toLowerCase();
+                if (key === 'z') {
                     e.preventDefault();
-                    if (e.shiftKey) {
-                        this.model.redo();
-                    } else {
-                        this.model.undo();
-                    }
-                } else if (e.key.toLowerCase() === 'y') {
+                    if (e.shiftKey) this.model.redo();
+                    else this.model.undo();
+                } else if (key === 'y') {
                     e.preventDefault();
                     this.model.redo();
+                } else if (key === 'c') {
+                    e.preventDefault();
+                    this.copySelection();
+                } else if (key === 'x') {
+                    e.preventDefault();
+                    this.cutSelection();
+                } else if (key === 'v') {
+                    e.preventDefault();
+                    this.pasteSelection();
                 }
+            } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                this.deleteSelection();
             }
         });
 
@@ -199,6 +215,53 @@ class App {
                 alert('名前を付けて保存に失敗しました');
             }
         }
+    }
+
+    async copySelection() {
+        const path = this.model.selectionPath;
+        if (!path || path === 'root') return;
+        const parts = this.model.parsePath(path);
+        const val = this.model.getValueByPath(parts);
+        const text = (val !== null && typeof val === 'object') ? JSON.stringify(val, null, 2) : String(val);
+        await navigator.clipboard.writeText(text);
+    }
+
+    async cutSelection() {
+        await this.copySelection();
+        this.deleteSelection();
+    }
+
+    async pasteSelection() {
+        const path = this.model.selectionPath;
+        if (!path || path === 'root') return;
+        try {
+            const text = await navigator.clipboard.readText();
+            let val;
+            try {
+                val = JSON.parse(text);
+            } catch {
+                if (!isNaN(text) && text.trim() !== '') {
+                    val = Number(text);
+                } else if (text === 'true') {
+                    val = true;
+                } else if (text === 'false') {
+                    val = false;
+                } else if (text === 'null') {
+                    val = null;
+                } else {
+                    val = text;
+                }
+            }
+            this.model.updateValue(path, val);
+        } catch (err) {
+            console.error('Paste failed', err);
+        }
+    }
+
+    deleteSelection() {
+        const path = this.model.selectionPath;
+        if (!path || path === 'root') return;
+        this.model.updateValue(path, null);
     }
 }
 

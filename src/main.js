@@ -8,6 +8,7 @@ class App {
         this.model = new JsonModel();
         this.treeView = new TreeView(document.getElementById('tree-container'), this.model);
         this.gridView = new GridView(document.getElementById('grid-container'), this.model);
+        this.fileHandle = null;
 
         this.init();
     }
@@ -47,14 +48,6 @@ class App {
             document.body.style.cursor = 'default';
         });
 
-        // ツールバーのイベント
-        if (document.getElementById('open-btn')) {
-            document.getElementById('open-btn').addEventListener('click', () => this.openFile());
-        }
-        if (document.getElementById('save-btn')) {
-            document.getElementById('save-btn').addEventListener('click', () => this.saveFile());
-        }
-
         // --- メニューバーのイベント制御 ---
         // 1. メニューグループのトグル
         document.querySelectorAll('.menu-group').forEach(group => {
@@ -69,20 +62,23 @@ class App {
         });
 
         // 2. ドロップダウン内項目のクリック
-        if (document.getElementById('menu-open')) {
-            document.getElementById('menu-open').addEventListener('click', (e) => {
-                e.stopPropagation(); // メニューを閉じる前に処理
-                this.closeAllMenus();
-                this.openFile();
-            });
-        }
-        if (document.getElementById('menu-save')) {
-            document.getElementById('menu-save').addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.closeAllMenus();
-                this.saveFile();
-            });
-        }
+        const menuActions = {
+            'menu-new': () => this.newFile(),
+            'menu-open': () => this.openFile(),
+            'menu-save': () => this.saveFile(),
+            'menu-save-as': () => this.saveFileAs()
+        };
+
+        Object.keys(menuActions).forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.closeAllMenus();
+                    menuActions[id]();
+                });
+            }
+        });
 
         // 3. メニュー外クリックで閉じる
         document.addEventListener('click', () => {
@@ -90,6 +86,19 @@ class App {
         });
 
         // 初期データの読み込み（デモ用）
+        this.newFile(true); // デモデータをセット
+    }
+
+    closeAllMenus() {
+        document.querySelectorAll('.menu-group.active').forEach(g => g.classList.remove('active'));
+    }
+
+    newFile(isInitial = false) {
+        const defaultData = {
+            project: "New Project",
+            version: 1.0,
+            data: []
+        };
         const demoData = {
             project: "JsonTreeGridSample",
             version: 1.0,
@@ -105,43 +114,72 @@ class App {
                 { id: 5, name: "ワーウルフ", stats: { hp: 40, atk: 8, int: 1, def: 4 } }
             ]
         };
-        this.model.setData(demoData);
-        this.model.setSelection('root');
-    }
 
-    closeAllMenus() {
-        document.querySelectorAll('.menu-group.active').forEach(g => g.classList.remove('active'));
+        this.model.setData(isInitial ? demoData : defaultData);
+        this.model.setSelection('root');
+        this.fileHandle = null;
+        document.getElementById('file-info').textContent = '新規ファイル';
     }
 
     async openFile() {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.json';
-        input.onchange = async (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const text = await file.text();
-                try {
-                    const json = JSON.parse(text);
-                    this.model.setData(json);
-                    document.getElementById('file-info').textContent = file.name;
-                } catch (err) {
-                    alert('JSONのパースに失敗しました');
-                }
+        try {
+            const [handle] = await window.showOpenFilePicker({
+                types: [{
+                    description: 'JSON Files',
+                    accept: { 'application/json': ['.json'] }
+                }]
+            });
+            const file = await handle.getFile();
+            const text = await file.text();
+            const json = JSON.parse(text);
+
+            this.model.setData(json);
+            this.fileHandle = handle;
+            document.getElementById('file-info').textContent = file.name;
+            this.model.setSelection('root');
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                console.error(err);
+                alert('ファイルを開けませんでした');
             }
-        };
-        input.click();
+        }
     }
 
-    saveFile() {
-        const json = this.model.getData();
-        const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = document.getElementById('file-info').textContent === '新規ファイル' ? 'data.json' : document.getElementById('file-info').textContent;
-        a.click();
-        URL.revokeObjectURL(url);
+    async saveFile() {
+        if (!this.fileHandle) {
+            return this.saveFileAs();
+        }
+
+        try {
+            const writable = await this.fileHandle.createWritable();
+            const json = this.model.getData();
+            await writable.write(JSON.stringify(json, null, 2));
+            await writable.close();
+            console.log('Saved to', this.fileHandle.name);
+        } catch (err) {
+            console.error(err);
+            alert('保存に失敗しました。権限が拒否された可能性があります。');
+        }
+    }
+
+    async saveFileAs() {
+        try {
+            const handle = await window.showSaveFilePicker({
+                suggestedName: 'data.json',
+                types: [{
+                    description: 'JSON Files',
+                    accept: { 'application/json': ['.json'] }
+                }]
+            });
+            this.fileHandle = handle;
+            await this.saveFile();
+            document.getElementById('file-info').textContent = handle.name;
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                console.error(err);
+                alert('名前を付けて保存に失敗しました');
+            }
+        }
     }
 }
 

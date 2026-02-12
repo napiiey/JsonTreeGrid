@@ -3,6 +3,39 @@ export class JsonModel extends EventTarget {
         super();
         this.data = null;
         this.selectionPath = null;
+        this.undoStack = [];
+        this.redoStack = [];
+        this.maxHistory = 50;
+    }
+
+    saveHistory() {
+        if (!this.data) return;
+        // 現在の状態をディープコピーしてスタックに保存
+        this.undoStack.push(JSON.stringify(this.data));
+        if (this.undoStack.length > this.maxHistory) {
+            this.undoStack.shift();
+        }
+        this.redoStack = []; // 新しい操作をしたらやり直しスタックはクリア
+    }
+
+    undo() {
+        if (this.undoStack.length === 0) return;
+        const currentState = JSON.stringify(this.data);
+        this.redoStack.push(currentState);
+
+        const previousState = JSON.parse(this.undoStack.pop());
+        this.data = previousState;
+        this.dispatchEvent(new CustomEvent('dataChange'));
+    }
+
+    redo() {
+        if (this.redoStack.length === 0) return;
+        const currentState = JSON.stringify(this.data);
+        this.undoStack.push(currentState);
+
+        const nextState = JSON.parse(this.redoStack.pop());
+        this.data = nextState;
+        this.dispatchEvent(new CustomEvent('dataChange'));
     }
 
     setData(json) {
@@ -21,6 +54,7 @@ export class JsonModel extends EventTarget {
 
     updateValue(path, value) {
         if (!path) return;
+        this.saveHistory();
 
         const parts = this.parsePath(path);
         let current = this.data;
@@ -82,6 +116,7 @@ export class JsonModel extends EventTarget {
     }
 
     moveArrayElement(path, fromIndex, toIndex) {
+        this.saveHistory();
         const parts = this.parsePath(path);
         const array = this.getValueByPath(parts);
         if (Array.isArray(array)) {
@@ -92,6 +127,7 @@ export class JsonModel extends EventTarget {
     }
 
     insertArrayElement(path, index) {
+        this.saveHistory();
         const parts = this.parsePath(path);
         const array = this.getValueByPath(parts);
         if (Array.isArray(array)) {
@@ -129,6 +165,7 @@ export class JsonModel extends EventTarget {
     }
 
     removeArrayElement(path, index) {
+        this.saveHistory();
         const parts = this.parsePath(path);
         const array = this.getValueByPath(parts);
         if (Array.isArray(array)) {
@@ -144,6 +181,7 @@ export class JsonModel extends EventTarget {
      */
     renameKey(baseParts, subPathParts, oldKey, newKey) {
         if (oldKey === newKey || !newKey) return;
+        this.saveHistory();
         const rootTarget = this.getValueByPath(baseParts);
         if (!rootTarget) return;
 
@@ -202,6 +240,7 @@ export class JsonModel extends EventTarget {
     moveKey(parentPathParts, oldKey, newKey, insertAfter = false) {
         if (oldKey === newKey && !insertAfter) return; // 単純なリネーム目的のAPIではないが、ガード
         if (oldKey === newKey && insertAfter) return; // 同じ場所への移動は何もしない
+        this.saveHistory();
 
         // 再帰的に適用する関数
         const reorderInObject = (obj) => {
@@ -279,6 +318,7 @@ export class JsonModel extends EventTarget {
     }
 
     insertKey(parentPathParts, targetKey, isRight) {
+        this.saveHistory();
         const insertIntoOne = (obj) => {
             if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
                 const keys = Object.keys(obj);
@@ -343,6 +383,7 @@ export class JsonModel extends EventTarget {
     }
 
     removeKey(parentPathParts, keyToRemove) {
+        this.saveHistory();
         const removeOne = (obj) => {
             if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
                 delete obj[keyToRemove];

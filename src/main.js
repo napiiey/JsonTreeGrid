@@ -66,7 +66,9 @@ class App {
             'menu-new': () => this.newFile(),
             'menu-open': () => this.openFile(),
             'menu-save': () => this.saveFile(),
-            'menu-save-as': () => this.saveFileAs()
+            'menu-save-as': () => this.saveFileAs(),
+            'menu-undo': () => this.model.undo(),
+            'menu-redo': () => this.model.redo()
         };
 
         Object.keys(menuActions).forEach(id => {
@@ -83,6 +85,23 @@ class App {
         // 3. メニュー外クリックで閉じる
         document.addEventListener('click', () => {
             this.closeAllMenus();
+        });
+
+        // 4. ショートカットキー (Undo/Redo)
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key.toLowerCase() === 'z') {
+                    e.preventDefault();
+                    if (e.shiftKey) {
+                        this.model.redo();
+                    } else {
+                        this.model.undo();
+                    }
+                } else if (e.key.toLowerCase() === 'y') {
+                    e.preventDefault();
+                    this.model.redo();
+                }
+            }
         });
 
         // 初期データの読み込み（デモ用）

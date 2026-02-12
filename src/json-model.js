@@ -175,15 +175,8 @@ export class JsonModel extends EventTarget {
             const first = path[0];
             const rest = path.slice(1);
 
-            // インデックスの判定（数値または "[0]" 形式の文字列）
-            let index = -1;
-            if (typeof first === 'number') index = first;
-            else if (typeof first === 'string' && first.startsWith('[') && first.endsWith(']')) {
-                index = parseInt(first.slice(1, -1), 10);
-            }
-
-            if (index !== -1) {
-                // インデックス（[0]等）に遭遇した場合、意図としては「その階層の全要素」を対象とする
+            if (typeof first === 'number' || (typeof first === 'string' && first.startsWith('[') && first.endsWith(']'))) {
+                const index = (typeof first === 'number') ? first : parseInt(first.slice(1, -1), 10);
                 if (Array.isArray(current)) {
                     current.forEach(item => traverseAndRename(item, rest));
                 } else if (current && current[index] !== undefined) {
@@ -191,8 +184,6 @@ export class JsonModel extends EventTarget {
                 }
             } else {
                 if (Array.isArray(current)) {
-                    // 配列だがインデックス指定でない場合（例: コンテキスト自体が配列）、
-                    // 全要素に対して同じパスで再帰を試みる
                     current.forEach(item => traverseAndRename(item, path));
                 } else if (current && typeof current === 'object' && current[first] !== undefined) {
                     traverseAndRename(current[first], rest);
@@ -288,16 +279,12 @@ export class JsonModel extends EventTarget {
     }
 
     insertKey(parentPathParts, targetKey, isRight) {
-        const rootTarget = this.getValueByPath(parentPathParts);
-        if (!rootTarget) return;
-
         const insertIntoOne = (obj) => {
             if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
                 const keys = Object.keys(obj);
                 const targetIndex = keys.indexOf(targetKey);
                 if (targetIndex === -1) return;
 
-                // ユニークな新しいキー名を生成 (newKey, newKey_1, ...)
                 let baseName = "newKey";
                 let newKey = baseName;
                 let counter = 1;
@@ -305,7 +292,6 @@ export class JsonModel extends EventTarget {
                     newKey = `${baseName}_${counter++}`;
                 }
 
-                // デフォルト値の推測（隣の値を参考にする）
                 let defaultValue = "";
                 const siblingValue = obj[targetKey];
                 if (typeof siblingValue === 'number') defaultValue = 0;
@@ -327,7 +313,7 @@ export class JsonModel extends EventTarget {
             }
         };
 
-        const traverseAndInsert = (current, path) => {
+        const traverse = (current, path) => {
             if (path.length === 0) {
                 if (Array.isArray(current)) current.forEach(item => insertIntoOne(item));
                 else insertIntoOne(current);
@@ -335,32 +321,35 @@ export class JsonModel extends EventTarget {
             }
             const first = path[0];
             const rest = path.slice(1);
-            let index = (typeof first === 'number') ? first : (typeof first === 'string' && first.startsWith('[') ? parseInt(first.slice(1, -1), 10) : -1);
 
-            if (index !== -1) {
-                if (Array.isArray(current)) current.forEach(item => traverseAndInsert(item, rest));
-                else if (current && current[index] !== undefined) traverseAndInsert(current[index], rest);
+            if (typeof first === 'number' || (typeof first === 'string' && first.startsWith('[') && first.endsWith(']'))) {
+                const index = (typeof first === 'number') ? first : parseInt(first.slice(1, -1), 10);
+                if (Array.isArray(current)) {
+                    current.forEach(item => traverse(item, rest));
+                } else if (current && current[index] !== undefined) {
+                    traverse(current[index], rest);
+                }
             } else {
-                if (Array.isArray(current)) current.forEach(item => traverseAndInsert(item, path));
-                else if (current && typeof current === 'object' && current[first] !== undefined) traverseAndInsert(current[first], rest);
+                if (Array.isArray(current)) {
+                    current.forEach(item => traverse(item, path));
+                } else if (current && typeof current === 'object' && current[first] !== undefined) {
+                    traverse(current[first], rest);
+                }
             }
         };
 
-        traverseAndInsert(this.data, parentPathParts);
+        traverse(this.data, parentPathParts);
         this.dispatchEvent(new CustomEvent('dataChange'));
     }
 
     removeKey(parentPathParts, keyToRemove) {
-        const rootTarget = this.getValueByPath(parentPathParts);
-        if (!rootTarget) return;
-
         const removeOne = (obj) => {
             if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
                 delete obj[keyToRemove];
             }
         };
 
-        const traverseAndRemove = (current, path) => {
+        const traverse = (current, path) => {
             if (path.length === 0) {
                 if (Array.isArray(current)) current.forEach(item => removeOne(item));
                 else removeOne(current);
@@ -368,18 +357,24 @@ export class JsonModel extends EventTarget {
             }
             const first = path[0];
             const rest = path.slice(1);
-            let index = (typeof first === 'number') ? first : (typeof first === 'string' && first.startsWith('[') ? parseInt(first.slice(1, -1), 10) : -1);
 
-            if (index !== -1) {
-                if (Array.isArray(current)) current.forEach(item => traverseAndRemove(item, rest));
-                else if (current && current[index] !== undefined) traverseAndRemove(current[index], rest);
+            if (typeof first === 'number' || (typeof first === 'string' && first.startsWith('[') && first.endsWith(']'))) {
+                const index = (typeof first === 'number') ? first : parseInt(first.slice(1, -1), 10);
+                if (Array.isArray(current)) {
+                    current.forEach(item => traverse(item, rest));
+                } else if (current && current[index] !== undefined) {
+                    traverse(current[index], rest);
+                }
             } else {
-                if (Array.isArray(current)) current.forEach(item => traverseAndRemove(item, path));
-                else if (current && typeof current === 'object' && current[first] !== undefined) traverseAndRemove(current[first], rest);
+                if (Array.isArray(current)) {
+                    current.forEach(item => traverse(item, path));
+                } else if (current && typeof current === 'object' && current[first] !== undefined) {
+                    traverse(current[first], rest);
+                }
             }
         };
 
-        traverseAndRemove(this.data, parentPathParts);
+        traverse(this.data, parentPathParts);
         this.dispatchEvent(new CustomEvent('dataChange'));
     }
 

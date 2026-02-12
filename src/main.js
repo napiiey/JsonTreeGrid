@@ -218,12 +218,18 @@ class App {
     }
 
     async copySelection() {
-        const path = this.model.selectionPath;
-        if (!path || path === 'root') return;
-        const parts = this.model.parsePath(path);
-        const val = this.model.getValueByPath(parts);
-        const text = (val !== null && typeof val === 'object') ? JSON.stringify(val, null, 2) : String(val);
-        await navigator.clipboard.writeText(text);
+        const range = this.gridView.getSelectedPaths();
+        if (range.length === 0) return;
+
+        const tsv = range.map(row => {
+            return row.map(path => {
+                if (!path) return '';
+                const val = this.model.getValueByPath(this.model.parsePath(path));
+                return (val !== null && typeof val === 'object') ? JSON.stringify(val) : (val === null ? '' : String(val));
+            }).join('\t');
+        }).join('\n');
+
+        await navigator.clipboard.writeText(tsv);
     }
 
     async cutSelection() {
@@ -232,36 +238,73 @@ class App {
     }
 
     async pasteSelection() {
-        const path = this.model.selectionPath;
-        if (!path || path === 'root') return;
+        const anchorPath = this.model.selectionPath;
+        if (!anchorPath || anchorPath === 'root') return;
+
         try {
             const text = await navigator.clipboard.readText();
-            let val;
-            try {
-                val = JSON.parse(text);
-            } catch {
-                if (!isNaN(text) && text.trim() !== '') {
-                    val = Number(text);
-                } else if (text === 'true') {
-                    val = true;
-                } else if (text === 'false') {
-                    val = false;
-                } else if (text === 'null') {
-                    val = null;
-                } else {
-                    val = text;
-                }
+            if (!text) return;
+
+            const lines = text.split(/\r?\n/).filter(l => l.length > 0);
+            const grid = lines.map(line => line.split('\t'));
+
+            // アンカーセル（現在選択されている主セル）を探す
+            const anchorCell = document.querySelector(`.grid-cell.selected`);
+            if (!anchorCell) return;
+
+            const startRow = parseInt(anchorCell.parentElement.dataset.index);
+            const startCol = parseInt(anchorCell.dataset.colIndex);
+
+            const updates = [];
+            grid.forEach((row, ri) => {
+                row.forEach((cellText, ci) => {
+                    // 相対位置のセルを探す
+                    const targetCell = document.querySelector(`.grid-row[data-index="${startRow + ri}"] .grid-cell[data-col-index="${startCol + ci}"]`);
+                    if (targetCell) {
+                        const path = targetCell.dataset.path;
+                        let val;
+                        try {
+                            val = JSON.parse(cellText);
+                        } catch {
+                            if (!isNaN(cellText) && cellText.trim() !== '') {
+                                val = Number(cellText);
+                            } else if (cellText === 'true') {
+                                val = true;
+                            } else if (cellText === 'false') {
+                                val = false;
+                            } else if (cellText === 'null') {
+                                val = null;
+                            } else {
+                                val = cellText;
+                            }
+                        }
+                        updates.push({ path, value: val });
+                    }
+                });
+            });
+
+            if (updates.length > 0) {
+                this.model.batchUpdateValues(updates);
             }
-            this.model.updateValue(path, val);
         } catch (err) {
             console.error('Paste failed', err);
         }
     }
 
     deleteSelection() {
-        const path = this.model.selectionPath;
-        if (!path || path === 'root') return;
-        this.model.updateValue(path, null);
+        const range = this.gridView.getSelectedPaths();
+        if (range.length === 0) return;
+
+        const updates = [];
+        range.flat().forEach(path => {
+            if (path && path !== 'root') {
+                updates.push({ path, value: null });
+            }
+        });
+
+        if (updates.length > 0) {
+            this.model.batchUpdateValues(updates);
+        }
     }
 }
 

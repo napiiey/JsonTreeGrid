@@ -55,7 +55,11 @@ export class JsonModel extends EventTarget {
     updateValue(path, value) {
         if (!path) return;
         this.saveHistory();
+        this._updateValueInternal(path, value);
+        this.dispatchEvent(new CustomEvent('dataChange'));
+    }
 
+    _updateValueInternal(path, value) {
         const parts = this.parsePath(path);
         let current = this.data;
 
@@ -73,11 +77,17 @@ export class JsonModel extends EventTarget {
             convertedValue = Number(value);
         } else if (typeof originalValue === 'boolean') {
             convertedValue = value === 'true' || value === true;
-        } else if (originalValue === null) {
-            // nullの場合はそのままか、パースを試みる
         }
 
         current[lastKey] = convertedValue;
+    }
+
+    batchUpdateValues(updates) {
+        if (!updates || updates.length === 0) return;
+        this.saveHistory();
+        updates.forEach(({ path, value }) => {
+            this._updateValueInternal(path, value);
+        });
         this.dispatchEvent(new CustomEvent('dataChange'));
     }
 

@@ -22,11 +22,12 @@ export class GridView {
         // コンテキストメニュー用
         this.contextMenu = null;
 
-        this.container.addEventListener('click', (e) => {
-            const cell = e.target.closest('.grid-cell');
-            if (!cell) return;
-            this.selectCell(cell);
-        });
+        // 範囲選択用の状態
+        this.selectionAnchor = null; // { rowIndex, colIndex }
+        this.selectionFocus = null;  // { rowIndex, colIndex }
+        this.isSelecting = false;
+
+        // 編集・選択のイベントは mousedown/dblclick で管理
 
         this.container.addEventListener('dblclick', (e) => {
             const cell = e.target.closest('.grid-cell');
@@ -37,6 +38,20 @@ export class GridView {
         this.container.addEventListener('mousedown', (e) => this.handleMouseDown(e));
         window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         window.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+
+        // ポインターイベントによるドラッグ選択開始
+        this.container.addEventListener('mouseover', (e) => {
+            if (this.isSelecting) {
+                const cell = e.target.closest('.grid-cell');
+                if (cell) {
+                    this.selectionFocus = {
+                        rowIndex: parseInt(cell.parentElement.dataset.index),
+                        colIndex: parseInt(cell.dataset.colIndex)
+                    };
+                    this.updateSelectionUI();
+                }
+            }
+        });
 
         // ドラッグ＆ドロップ（行の並べ替え）
         this.container.addEventListener('dragstart', (e) => this.handleDragStart(e));
@@ -447,19 +462,20 @@ export class GridView {
             const tr = document.createElement('tr');
             tr.className = 'grid-row';
             tr.dataset.index = rowIndex;
-            tr.draggable = true;
 
             const indexTd = document.createElement('td');
             indexTd.textContent = rowIndex;
             indexTd.className = 'grid-index';
+            indexTd.draggable = true; // インデックス部分のみドラッグ可能にする
             if (isArray) {
                 indexTd.oncontextmenu = (e) => this.showIndexContextMenu(e, rowIndex, parentParts);
             }
             tr.appendChild(indexTd);
 
-            columnDefs.forEach(colDef => {
+            columnDefs.forEach((colDef, colIndex) => {
                 const td = document.createElement('td');
                 td.className = 'grid-cell';
+                td.dataset.colIndex = colIndex;
 
                 const val = this.model.getValueByPath(colDef.path, rowData);
 
@@ -507,9 +523,12 @@ export class GridView {
         });
         table.appendChild(tbody);
         this.container.appendChild(table);
+
+        // レンダリング後に選択状態を更新
+        this.updateSelectionUI();
     }
 
-    // --- カラムリサイズ ---
+    // --- マウスイベント (リサイズ / 範囲選択) ---
     handleMouseDown(e) {
         if (e.target.classList.contains('col-resize-handle')) {
             this.resizingCol = e.target.dataset.col;
@@ -518,6 +537,32 @@ export class GridView {
             this.startWidth = th.offsetWidth;
             document.body.style.cursor = 'col-resize';
             e.preventDefault();
+            return;
+        }
+
+        const cell = e.target.closest('.grid-cell');
+        if (cell) {
+            // 入力中などの場合はデフォルト挙動を許容
+            if (e.target.tagName === 'INPUT' || e.target.contentEditable === 'true') return;
+
+            e.preventDefault(); // テキスト選択などを防ぐ
+            const rowIndex = parseInt(cell.parentElement.dataset.index);
+            const colIndex = parseInt(cell.dataset.colIndex);
+
+            if (e.shiftKey && this.selectionAnchor) {
+                // Shiftキー押下時は範囲を広げる
+                this.selectionFocus = { rowIndex, colIndex };
+            } else {
+                // 通常クリック時は新しい範囲を開始
+                this.selectionAnchor = { rowIndex, colIndex };
+                this.selectionFocus = { rowIndex, colIndex };
+                this.isSelecting = true;
+
+                // 単一パスの選択も同期
+                this.selectedPath = cell.dataset.path;
+                this.model.setSelection(this.selectedPath);
+            }
+            this.updateSelectionUI();
         }
     }
 
@@ -556,10 +601,47 @@ export class GridView {
             this.resizingCol = null;
             document.body.style.cursor = 'default';
         }
+        this.isSelecting = false;
+    }
+
+    updateSelectionUI() {
+        if (!this.selectionAnchor || !this.selectionFocus) return;
+
+        const r1 = Math.min(this.selectionAnchor.rowIndex, this.selectionFocus.rowIndex);
+        const r2 = Math.max(this.selectionAnchor.rowIndex, this.selectionFocus.rowIndex);
+        const c1 = Math.min(this.selectionAnchor.colIndex, this.selectionFocus.colIndex);
+        const c2 = Math.max(this.selectionAnchor.colIndex, this.selectionFocus.colIndex);
+
+        this.container.querySelectorAll('.grid-cell').forEach(td => {
+            const r = parseInt(td.parentElement.dataset.index);
+            const c = parseInt(td.dataset.colIndex);
+
+            const inRange = (r >= r1 && r <= r2 && c >= c1 && c <= c2);
+            td.classList.toggle('range-selected', inRange);
+            td.classList.toggle('selected', r === this.selectionAnchor.rowIndex && c === this.selectionAnchor.colIndex);
+
+            // 境界線のスタイル
+            td.classList.toggle('range-left', inRange && c === c1);
+            td.classList.toggle('range-right', inRange && c === c2);
+            td.classList.toggle('range-top', inRange && r === r1);
+            td.classList.toggle('range-bottom', inRange && r === r2);
+        });
+
+        // アクティブなセルの同期（アンカー位置を開始点とする）
+        const activeCell = this.container.querySelector(`.grid-row[data-index="${this.selectionAnchor.rowIndex}"] .grid-cell[data-col-index="${this.selectionAnchor.colIndex}"]`);
+        if (activeCell && activeCell.dataset.path !== this.selectedPath) {
+            this.selectedPath = activeCell.dataset.path;
+            this.model.setSelection(this.selectedPath);
+        }
     }
 
     // --- 行の並べ替え (Drag & Drop) ---
     handleDragStart(e) {
+        // インデックス列からドラッグが開始されたか確認
+        if (!e.target.closest('.grid-index')) {
+            return;
+        }
+
         const tr = e.target.closest('.grid-row');
         if (!tr) return;
         this.draggedRowIndex = parseInt(tr.dataset.index);
@@ -627,10 +709,30 @@ export class GridView {
     }
 
     selectCell(cell) {
-        document.querySelectorAll('.grid-cell.selected').forEach(c => c.classList.remove('selected'));
-        cell.classList.add('selected');
-        this.selectedPath = cell.dataset.path;
-        this.model.setSelection(this.selectedPath);
+        const rowIndex = parseInt(cell.parentElement.dataset.index);
+        const colIndex = parseInt(cell.dataset.colIndex);
+        this.selectionAnchor = { rowIndex, colIndex };
+        this.selectionFocus = { rowIndex, colIndex };
+        this.updateSelectionUI();
+    }
+
+    getSelectedPaths() {
+        if (!this.selectionAnchor || !this.selectionFocus) return [];
+        const r1 = Math.min(this.selectionAnchor.rowIndex, this.selectionFocus.rowIndex);
+        const r2 = Math.max(this.selectionAnchor.rowIndex, this.selectionFocus.rowIndex);
+        const c1 = Math.min(this.selectionAnchor.colIndex, this.selectionFocus.colIndex);
+        const c2 = Math.max(this.selectionAnchor.colIndex, this.selectionFocus.colIndex);
+
+        const range = [];
+        for (let r = r1; r <= r2; r++) {
+            const row = [];
+            for (let c = c1; c <= c2; c++) {
+                const cell = this.container.querySelector(`.grid-row[data-index="${r}"] .grid-cell[data-col-index="${c}"]`);
+                row.push(cell ? cell.dataset.path : null);
+            }
+            range.push(row);
+        }
+        return range;
     }
 
     startEdit(cell, options = {}) {
@@ -698,46 +800,54 @@ export class GridView {
     handleKeyDown(e) {
         if (this.editingCell) return;
 
-        const selected = this.container.querySelector('.grid-cell.selected');
-        if (!selected) return;
+        const activeCell = this.container.querySelector('.grid-cell.selected');
+        if (!activeCell || !this.selectionAnchor || !this.selectionFocus) return;
 
         if (e.key === 'Enter') {
-            this.startEdit(selected);
+            this.startEdit(activeCell);
             e.preventDefault();
             return;
         }
 
         // 上書き入力 (一文字の入力の場合)
         if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
-            this.startEdit(selected, { initialValue: e.key });
+            this.startEdit(activeCell, { initialValue: e.key });
             e.preventDefault();
             return;
         }
 
-        // 矢印キー移動
-        const tr = selected.parentElement;
-        const cells = Array.from(tr.querySelectorAll('.grid-cell'));
-        const colIndex = cells.indexOf(selected);
-        const rowIndex = Array.from(tr.parentElement.children).indexOf(tr);
+        // 矢印キー移動・範囲拡大
+        let nextRow = this.selectionFocus.rowIndex;
+        let nextCol = this.selectionFocus.colIndex;
 
-        let nextCell = null;
-        if (e.key === 'ArrowRight') {
-            nextCell = cells[colIndex + 1];
-        } else if (e.key === 'ArrowLeft') {
-            nextCell = cells[colIndex - 1];
-        } else if (e.key === 'ArrowDown') {
-            const nextRow = tr.nextElementSibling;
-            if (nextRow) nextCell = nextRow.querySelectorAll('.grid-cell')[colIndex];
-        } else if (e.key === 'ArrowUp') {
-            const prevRow = tr.previousElementSibling;
-            if (prevRow) nextCell = prevRow.querySelectorAll('.grid-cell')[colIndex];
+        if (e.key === 'ArrowRight') nextCol++;
+        else if (e.key === 'ArrowLeft') nextCol--;
+        else if (e.key === 'ArrowDown') nextRow++;
+        else if (e.key === 'ArrowUp') nextRow--;
+        else return;
+
+        // 範囲外チェック
+        const rows = this.container.querySelectorAll('.grid-row');
+        const maxRow = rows.length - 1;
+        const maxCol = rows[0].querySelectorAll('.grid-cell').length - 1;
+
+        nextRow = Math.max(0, Math.min(maxRow, nextRow));
+        nextCol = Math.max(0, Math.min(maxCol, nextCol));
+
+        if (e.shiftKey) {
+            this.selectionFocus = { rowIndex: nextRow, colIndex: nextCol };
+        } else {
+            this.selectionAnchor = { rowIndex: nextRow, colIndex: nextCol };
+            this.selectionFocus = { rowIndex: nextRow, colIndex: nextCol };
         }
 
-        if (nextCell) {
-            this.selectCell(nextCell);
-            nextCell.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-            e.preventDefault();
-        }
+        this.updateSelectionUI();
+
+        // スクロール追従
+        const targetCell = this.container.querySelector(`.grid-row[data-index="${nextRow}"] .grid-cell[data-col-index="${nextCol}"]`);
+        if (targetCell) targetCell.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+
+        e.preventDefault();
     }
 
     // --- ヘッダーの名前変更 ---

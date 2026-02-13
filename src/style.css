@@ -332,6 +332,16 @@ body {
   text-overflow: ellipsis;
 }
 
+.grid-table td.cell-wrap {
+  white-space: normal;
+  overflow: visible;
+  word-break: break-all;
+  height: auto;
+  line-height: 1.4;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
 .grid-row.dragging {
   opacity: 0.5;
   background: #333;

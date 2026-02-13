@@ -34,6 +34,9 @@ export class GridView {
         this.scrollTop = 0;
         this.viewportHeight = 0;
 
+        // 折り返し設定されたカラムID
+        this.wrappedColumnIds = new Set();
+
         // 編集・選択のイベントは mousedown/dblclick で管理
 
         this.container.addEventListener('dblclick', (e) => {
@@ -615,6 +618,11 @@ export class GridView {
             td.className = 'grid-cell';
             td.dataset.colIndex = colIndex;
 
+            const colId = colDef.path.join('.');
+            if (this.wrappedColumnIds.has(colId)) {
+                td.classList.add('cell-wrap');
+            }
+
             const val = this.model.getValueByPath(colDef.path, rowData);
 
             if (val !== null && typeof val === 'object') {
@@ -743,6 +751,29 @@ export class GridView {
             }
             this.updateSelectionUI();
         }
+    }
+
+    toggleWrapSelection() {
+        if (!this.selectionAnchor || !this.selectionFocus) return;
+
+        const c1 = Math.min(this.selectionAnchor.colIndex, this.selectionFocus.colIndex);
+        const c2 = Math.max(this.selectionAnchor.colIndex, this.selectionFocus.colIndex);
+
+        // 最初の選択列の状態を見て、反転させる（トグルのため）
+        const firstColId = this.columnDefs[c1]?.path.join('.');
+        const shouldWrap = firstColId ? !this.wrappedColumnIds.has(firstColId) : true;
+
+        for (let i = c1; i <= c2; i++) {
+            const colId = this.columnDefs[i]?.path.join('.');
+            if (colId) {
+                if (shouldWrap) this.wrappedColumnIds.add(colId);
+                else this.wrappedColumnIds.delete(colId);
+            }
+        }
+        // 仮想スクロールのキャッシュ高さをリセットして再計算を促す
+        this.rowHeights = [];
+        this.updateVirtualRows();
+        this.render(); // ヘッダー等再描画を含めるため
     }
 
     handleMouseMove(e) {

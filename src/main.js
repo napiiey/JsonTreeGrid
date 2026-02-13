@@ -71,6 +71,7 @@ class App {
             'menu-redo': () => this.model.redo(),
             'toolbar-undo': () => this.model.undo(),
             'toolbar-redo': () => this.model.redo(),
+            'toolbar-wrap': () => this.gridView.toggleWrapSelection(),
             'menu-cut': () => this.cutSelection(),
             'menu-copy': () => this.copySelection(),
             'menu-paste': () => this.pasteSelection(),

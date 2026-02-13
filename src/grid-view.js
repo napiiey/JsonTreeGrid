@@ -437,9 +437,8 @@ export class GridView {
 
                         // グラフ（データバー）がある列の場合、見出しにも背景色を適用
                         if (columnMaxMap.has(col)) {
-                            // 両方不透明。データバー L=0.45 に対し、見出しは L=0.47
-                            th.style.backgroundColor = this.getBarColor(i, 0.47);
-                            th.style.color = '#fff';
+                            // セル (L=0.45) とほぼ同じ色 (L=0.452)
+                            th.style.backgroundColor = this.getBarColor(i, 0.46);
                         }
                     }
 
@@ -504,13 +503,13 @@ export class GridView {
         this.updateVirtualRows();
     }
 
-    getBarColor(colIndex, lightness = 0.45) {
+    getBarColor(colIndex, lightness = 0.36) {
         // 全体のカラム数から色相(Hue)を等間隔に分配
         const totalCols = this.columnDefs ? this.columnDefs.length : 10;
         // OKLCH 色空間を使用
         const hue = (colIndex * (360 / Math.max(totalCols, 5))) % 360;
-        // 鮮やかさ C=0.12 は固定
-        return `oklch(${lightness} 0.12 ${hue})`;
+        // 彩度をさらに落とし(0.04)、非常に控えめな色味にする
+        return `oklch(${lightness} 0.04 ${hue})`;
     }
 
     updateVirtualRows() {

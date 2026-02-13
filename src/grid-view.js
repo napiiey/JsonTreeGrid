@@ -1,3 +1,15 @@
+import { ContextMenu } from './context-menu.js';
+
+const GRID_CONSTANTS = {
+    INDEX_COL_WIDTH: 40,
+    DEFAULT_ROW_HEIGHT: 22,
+    HEADER_HEIGHT: 23,
+    MIN_COL_WIDTH: 60,
+    MAX_COL_WIDTH: 400,
+    BUFFER_ROWS: 5,
+    VISUAL_CHAR_WIDTH: 7
+};
+
 export class GridView {
     constructor(container, model) {
         this.container = container;
@@ -20,7 +32,7 @@ export class GridView {
         this.dragOverRowIndex = null;
 
         // コンテキストメニュー用
-        this.contextMenu = null;
+        this.contextMenu = new ContextMenu();
 
         // 範囲選択用の状態
         this.selectionAnchor = null; // { rowIndex, colIndex }
@@ -29,8 +41,8 @@ export class GridView {
 
         // 仮想スクロール用の状態
         this.rowHeights = []; // キャッシュされた行の高さ
-        this.defaultRowHeight = 22; // 推定行高さ
-        this.bufferRows = 5; // 上下に余分に描画する行数
+        this.defaultRowHeight = GRID_CONSTANTS.DEFAULT_ROW_HEIGHT; // 推定行高さ
+        this.bufferRows = GRID_CONSTANTS.BUFFER_ROWS; // 上下に余分に描画する行数
         this.scrollTop = 0;
         this.viewportHeight = 0;
 
@@ -39,8 +51,10 @@ export class GridView {
         this.headerSelection = null; // { colId, pathParts }
         this.isHeaderSelecting = false;
 
-        // 編集・選択のイベントは mousedown/dblclick で管理
+        this.initEvents();
+    }
 
+    initEvents() {
         this.container.addEventListener('dblclick', (e) => {
             const cell = e.target.closest('.grid-cell');
             if (!cell) return;
@@ -51,32 +65,8 @@ export class GridView {
         window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         window.addEventListener('mouseup', (e) => this.handleMouseUp(e));
 
-        // ポインターイベントによるドラッグ選択開始
         this.container.addEventListener('mouseover', (e) => {
-            if (this.isSelecting) {
-                const cell = e.target.closest('.grid-cell');
-                const indexCell = e.target.closest('.grid-index');
-                const th = e.target.closest('th');
-
-                if (cell) {
-                    this.selectionFocus = {
-                        rowIndex: parseInt(cell.parentElement.dataset.index),
-                        colIndex: parseInt(cell.dataset.colIndex)
-                    };
-                } else if (indexCell && indexCell.tagName === 'TD') {
-                    const rowIndex = parseInt(indexCell.parentElement.dataset.index);
-                    const table = indexCell.closest('.grid-table');
-                    const colCount = table.querySelectorAll('colgroup col[data-col-id]').length;
-                    this.selectionFocus = { rowIndex, colIndex: colCount - 1 };
-                } else if (th && !isNaN(parseInt(th.dataset.colIndex))) {
-                    const colIndex = parseInt(th.dataset.colIndex);
-                    const colCount = parseInt(th.dataset.colCount);
-                    const table = th.closest('.grid-table');
-                    const rowCount = table.querySelectorAll('tbody .grid-row').length;
-                    this.selectionFocus = { rowIndex: rowCount - 1, colIndex: colIndex + colCount - 1 };
-                }
-                this.updateSelectionUI();
-            }
+            if (this.isSelecting) this.handleSelectionDrag(e);
         });
 
         // ドラッグ＆ドロップ（行の並べ替え）
@@ -88,7 +78,6 @@ export class GridView {
 
         window.addEventListener('keydown', (e) => this.handleKeyDown(e));
 
-        // スクロール時に仮想スクロールを更新
         this.scroller = this.container.parentElement;
         this.scroller.addEventListener('scroll', () => {
             if (!this.lastGridContext) return;
@@ -96,7 +85,6 @@ export class GridView {
             this.updateVirtualRows();
         });
 
-        // コンテナのサイズ変更時に表示範囲を再計算
         this.resizeObserver = new ResizeObserver(() => {
             if (this.lastGridContext) this.updateVirtualRows();
         });
@@ -118,136 +106,130 @@ export class GridView {
         if (!this.selectedPath) return;
 
         const context = this.model.getGridContext(this.selectedPath);
-        const { rows, parentParts, relativePath, isArray } = context;
+        const { rows } = context;
         if (!rows) return;
 
-        const activeKey = isArray ? (relativePath[0] || '') : relativePath[0];
-
-        const table = document.createElement('table');
-        table.className = 'grid-table';
-
-        // --- 再帰的なカラム構造探索 ---
-        const getFlattenedColumns = (items, currentPathParts = []) => {
-            const structureMap = new Map(); // key -> { subKeys: Set, isArray: bool, isObject: bool }
-
-            items.forEach(item => {
-                if (item !== null && typeof item === 'object') {
-                    Object.keys(item).forEach(k => {
-                        if (!structureMap.has(k)) {
-                            structureMap.set(k, { subKeys: new Set(), isArray: false, isObject: false });
-                        }
-                        const val = item[k];
-                        const info = structureMap.get(k);
-                        if (val !== null && typeof val === 'object') {
-                            if (Array.isArray(val)) {
-                                info.isArray = true;
-                                val.forEach((_, i) => info.subKeys.add(`[${i}]`));
-                            } else {
-                                info.isObject = true;
-                                Object.keys(val).forEach(sk => info.subKeys.add(sk));
-                            }
-                        }
-                    });
-                }
-            });
-
-            const defs = [];
-            structureMap.forEach((info, key) => {
-                const fullPathParts = [...currentPathParts, key];
-                const fullPathStr = fullPathParts.join('.');
-
-                const isCollapsible = info.isArray || info.isObject;
-                let isExpanded = false;
-                if (isCollapsible) {
-                    const defaultExpanded = info.isObject && !info.isArray;
-                    // デフォルト挙動 + 個別の上書き状態を確認
-                    if (this.collapsedPaths.has(fullPathStr)) isExpanded = false;
-                    else if (this.expandedPaths.has(fullPathStr)) isExpanded = true;
-                    else isExpanded = defaultExpanded;
-                }
-
-                if (isExpanded && info.subKeys.size > 0) {
-                    const subItems = items.map(it => it ? it[key] : undefined).filter(it => it !== undefined);
-                    const subCols = getFlattenedColumns(subItems, fullPathParts);
-                    subCols.forEach(sc => defs.push(sc));
-                } else {
-                    defs.push({
-                        path: fullPathParts,
-                        name: key,
-                        isCollapsible,
-                        isCollapsed: !isExpanded,
-                        isArray: info.isArray,
-                        // 各パスの型情報を保存しておく
-                        pathInfoMap: new Map([[fullPathStr, { isArray: info.isArray, isObject: info.isObject }]])
-                    });
-                }
-            });
-            return defs;
-        };
-
-        // コンテキスト(rows)に対する相対的なカラム定義を取得
-        let columnDefs = getFlattenedColumns(rows);
-        if (columnDefs.length === 0) columnDefs = [{ path: ['value'], name: 'value', isCollapsible: false }];
-
-        // カラムごとの最大値を計算（データバー用）および初期幅の計算
-        const columnMaxMap = new Map();
-        const colInitialWidths = new Map();
-        columnDefs.forEach(colDef => {
-            const colId = colDef.path.join('.');
-            let max = -Infinity;
-            let hasNumeric = false;
-
-            // カラム名（ヘッダー）の長さから開始
-            let maxLen = 0;
-            const headerName = colDef.name;
-            for (let i = 0; i < headerName.length; i++) {
-                maxLen += headerName.charCodeAt(i) > 255 ? 2 : 1;
-            }
-
-            rows.forEach(rowData => {
-                const val = this.model.getValueByPath(colDef.path, rowData);
-
-                const num = parseFloat(val);
-                if (!isNaN(num)) {
-                    if (num > max) max = num;
-                    hasNumeric = true;
-                }
-
-                if (val !== null && val !== undefined && (typeof val === 'string' || typeof val === 'number')) {
-                    const s = String(val);
-                    // 全角を2、半角を1として視覚的な長さを計算
-                    let visualLen = 0;
-                    for (let i = 0; i < s.length; i++) {
-                        visualLen += s.charCodeAt(i) > 255 ? 2 : 1;
-                    }
-                    if (visualLen > maxLen) maxLen = visualLen;
-                }
-            });
-
-            if (hasNumeric && max > 0) {
-                columnMaxMap.set(colDef, max);
-            }
-
-            // 初期幅の計算 (60pxベース、内容に合わせて調整。自動計算時は最大400pxに制限)
-            let finalWidth = this.columnWidths[colId];
-            if (!finalWidth) {
-                finalWidth = Math.min(400, Math.max(60, maxLen * 7 + 12));
-            }
-            colInitialWidths.set(colId, finalWidth);
-        });
+        const columnDefs = this.buildColumnDefs(rows);
+        const { columnMaxMap, colInitialWidths } = this.calculateColumnStats(rows, columnDefs);
 
         this.columnMaxMap = columnMaxMap;
         this.columnDefs = columnDefs;
         this.lastGridContext = context;
 
+        const table = document.createElement('table');
+        table.className = 'grid-table';
 
-        // ヘッダーの手前にcolgroupを追加
+        this.buildColgroup(table, columnDefs, colInitialWidths);
+        this.buildHeader(table, columnDefs, columnMaxMap, context.parentParts);
+
+        const tbody = document.createElement('tbody');
+        table.appendChild(tbody);
+        this.container.appendChild(table);
+
+        this.updateVirtualRows();
+    }
+
+    getVisualLength(s) {
+        if (s === null || s === undefined) return 0;
+        const str = String(s);
+        let len = 0;
+        for (let i = 0; i < str.length; i++) {
+            len += str.charCodeAt(i) > 255 ? 2 : 1;
+        }
+        return len;
+    }
+
+    buildColumnDefs(rows, currentPathParts = []) {
+        const structureMap = new Map();
+        rows.forEach(item => {
+            if (item !== null && typeof item === 'object') {
+                Object.keys(item).forEach(k => {
+                    if (!structureMap.has(k)) structureMap.set(k, { subKeys: new Set(), isArray: false, isObject: false });
+                    const val = item[k];
+                    const info = structureMap.get(k);
+                    if (val !== null && typeof val === 'object') {
+                        if (Array.isArray(val)) {
+                            info.isArray = true;
+                            val.forEach((_, i) => info.subKeys.add(`[${i}]`));
+                        } else {
+                            info.isObject = true;
+                            Object.keys(val).forEach(sk => info.subKeys.add(sk));
+                        }
+                    }
+                });
+            }
+        });
+
+        const defs = [];
+        structureMap.forEach((info, key) => {
+            const fullPathParts = [...currentPathParts, key];
+            const fullPathStr = fullPathParts.join('.');
+            const isCollapsible = info.isArray || info.isObject;
+            let isExpanded = false;
+
+            if (isCollapsible) {
+                const defaultExpanded = info.isObject && !info.isArray;
+                if (this.collapsedPaths.has(fullPathStr)) isExpanded = false;
+                else if (this.expandedPaths.has(fullPathStr)) isExpanded = true;
+                else isExpanded = defaultExpanded;
+            }
+
+            if (isExpanded && info.subKeys.size > 0) {
+                const subItems = rows.map(it => it ? it[key] : undefined).filter(it => it !== undefined);
+                this.buildColumnDefs(subItems, fullPathParts).forEach(sc => defs.push(sc));
+            } else {
+                defs.push({
+                    path: fullPathParts,
+                    name: key,
+                    isCollapsible,
+                    isCollapsed: !isExpanded,
+                    isArray: info.isArray,
+                    pathInfoMap: new Map([[fullPathStr, { isArray: info.isArray, isObject: info.isObject }]])
+                });
+            }
+        });
+
+        return defs.length > 0 ? defs : [{ path: ['value'], name: 'value', isCollapsible: false }];
+    }
+
+    calculateColumnStats(rows, columnDefs) {
+        const columnMaxMap = new Map();
+        const colInitialWidths = new Map();
+
+        columnDefs.forEach(colDef => {
+            const colId = colDef.path.join('.');
+            let max = -Infinity;
+            let hasNumeric = false;
+            let maxLen = this.getVisualLength(colDef.name);
+
+            rows.forEach(rowData => {
+                const val = this.model.getValueByPath(colDef.path, rowData);
+                const num = parseFloat(val);
+                if (!isNaN(num)) {
+                    if (num > max) max = num;
+                    hasNumeric = true;
+                }
+                const visualLen = this.getVisualLength(val);
+                if (visualLen > maxLen) maxLen = visualLen;
+            });
+
+            if (hasNumeric && max > 0) columnMaxMap.set(colDef, max);
+
+            const savedWidth = this.columnWidths[colId];
+            const finalWidth = savedWidth || Math.min(GRID_CONSTANTS.MAX_COL_WIDTH, Math.max(GRID_CONSTANTS.MIN_COL_WIDTH, maxLen * GRID_CONSTANTS.VISUAL_CHAR_WIDTH + 12));
+            colInitialWidths.set(colId, finalWidth);
+        });
+
+        return { columnMaxMap, colInitialWidths };
+    }
+
+    buildColgroup(table, columnDefs, colInitialWidths) {
         const colgroup = document.createElement('colgroup');
-        // Index列用
         const indexCol = document.createElement('col');
-        indexCol.style.width = '40px';
+        indexCol.style.width = `${GRID_CONSTANTS.INDEX_COL_WIDTH}px`;
         colgroup.appendChild(indexCol);
 
+        let initialTableWidth = GRID_CONSTANTS.INDEX_COL_WIDTH;
         columnDefs.forEach(colDef => {
             const col = document.createElement('col');
             const colId = colDef.path.join('.');
@@ -255,21 +237,18 @@ export class GridView {
             col.style.width = `${width}px`;
             col.dataset.colId = colId;
             colgroup.appendChild(col);
+            initialTableWidth += width;
         });
         table.appendChild(colgroup);
-
-        // テーブル全体の初期幅を設定
-        let initialTableWidth = 40; // Index
-        colInitialWidths.forEach(w => initialTableWidth += w);
         table.style.width = `${initialTableWidth}px`;
+    }
 
-        // --- 多段ヘッダーの生成 ---
+    buildHeader(table, columnDefs, columnMaxMap, parentParts) {
         const thead = document.createElement('thead');
         const maxDepth = columnDefs.reduce((m, c) => Math.max(m, c.path.length), 0);
 
         for (let d = 0; d < maxDepth; d++) {
             const tr = document.createElement('tr');
-
             if (d === 0) {
                 const indexTh = document.createElement('th');
                 indexTh.className = 'grid-index';
@@ -280,227 +259,156 @@ export class GridView {
             for (let i = 0; i < columnDefs.length; i++) {
                 const col = columnDefs[i];
                 const segment = col.path[d];
-
-                // depth d に到達していないパス（理論上ないはずだが安全策）
                 if (segment === undefined) continue;
 
-                // 前の列と同じグループかチェック
-                let prevGroup = true;
-                if (i === 0) prevGroup = false;
-                else {
-                    for (let step = 0; step <= d; step++) {
-                        if (columnDefs[i - 1].path[step] !== col.path[step]) {
-                            prevGroup = false;
-                            break;
-                        }
-                    }
-                }
-
-                if (!prevGroup) {
-                    // 新しいヘッダーセルを作成
-                    const th = document.createElement('th');
-                    const content = document.createElement('div');
-                    content.className = 'th-content';
-                    content.textContent = segment;
-
-                    // ドラッグ可能にする (リネームと共存させるためハンドル以外をドラッグ領域とするか、ハンドルを追加するか)
-                    // ここではヘッダー全体をドラッグ可能にするが、リサイズハンドルや入力中は除外する制御が必要
-                    content.draggable = true;
-                    content.ondragstart = (e) => {
-                        // リサイズハンドル等を掴んでいる場合はドラッグしない
-                        if (e.target.classList.contains('col-resize-handle') || e.target.tagName === 'INPUT') {
-                            e.preventDefault();
-                            return;
-                        }
-                        e.dataTransfer.setData('application/json', JSON.stringify({
-                            path: col.path.slice(0, d + 1),
-                            parentPath: col.path.slice(0, d),
-                            key: segment
-                        }));
-                        e.dataTransfer.effectAllowed = 'move';
-                        th.classList.add('dragging-col');
-                    };
-
-                    content.ondragover = (e) => {
-                        e.preventDefault(); // ドロップ許可
-                        // 親パスが一致する場合のみ許可
-                        const data = document.querySelector('.dragging-col');
-                        if (data) {
-                            const rect = th.getBoundingClientRect();
-                            const mid = rect.left + rect.width / 2;
-                            if (e.clientX < mid) {
-                                th.classList.add('header-drag-over-left');
-                                th.classList.remove('header-drag-over-right');
-                            } else {
-                                th.classList.add('header-drag-over-right');
-                                th.classList.remove('header-drag-over-left');
-                            }
-                            th.classList.remove('header-drag-over'); // 古いクラス削除
-                            e.dataTransfer.dropEffect = 'move';
-                        }
-                    };
-
-                    content.ondragleave = (e) => {
-                        th.classList.remove('header-drag-over-left');
-                        th.classList.remove('header-drag-over-right');
-                    };
-
-                    content.ondrop = (e) => {
-                        e.preventDefault();
-                        const isRight = th.classList.contains('header-drag-over-right');
-                        th.classList.remove('header-drag-over-left');
-                        th.classList.remove('header-drag-over-right');
-
-                        const rawOpt = e.dataTransfer.getData('application/json');
-                        if (!rawOpt) return;
-
-                        try {
-                            const srcData = JSON.parse(rawOpt);
-                            const targetParentPath = col.path.slice(0, d);
-                            const targetKey = segment;
-                            const srcParentPath = srcData.parentPath;
-
-                            if (JSON.stringify(srcParentPath) === JSON.stringify(targetParentPath)) {
-                                // フルパス（ルートを含む）でモデルに渡す（getFlattenedColumnsが生成するpathはルートからの相対パス）
-                                // ただし grid-view の col.path は getFlattenedColumns の fullPathParts。
-                                // getFlattenedColumns の fullPathParts は 親の items 呼び出し時の currentPathParts に依存。
-                                // GridView render 内:
-                                // const context = this.model.getGridContext(this.selectedPath);
-                                // const getFlattenedColumns = (items, currentPathParts = []) => ...
-                                // ...
-                                // let columnDefs = getFlattenedColumns(rows);
-                                // この時 currentPathParts はデフォルト [] 。
-                                // つまり col.path は rows 内の 相対パス。
-                                // 一方 moveKey は root からのパスを期待している。
-                                // よって parentParts (context.parentParts) をプレフィックスとして付与する必要がある。
-                                // ... と思いきや、 getGridContext は rows を返す。
-                                // rows が array の場合、 items = rows. 
-                                // columnDefs の path には root からの情報は含まれていない (selectedPath配下の相対パス)
-
-                                // 正: moveKey に渡すべきは root からの path。
-                                // context.parentParts + srcParentPath
-
-                                const fullParentPath = [...parentParts, ...srcParentPath];
-                                this.model.moveKey(fullParentPath, srcData.key, targetKey, isRight);
-                            }
-                        } catch (err) {
-                            console.error(err);
-                        }
-                    };
-
-                    content.ondragend = () => {
-                        document.querySelectorAll('.dragging-col').forEach(el => el.classList.remove('dragging-col'));
-                        document.querySelectorAll('.header-drag-over-left').forEach(el => el.classList.remove('header-drag-over-left'));
-                        document.querySelectorAll('.header-drag-over-right').forEach(el => el.classList.remove('header-drag-over-right'));
-                    };
-
-                    th.appendChild(content);
-
-                    // ダブルクリックで名前変更
-                    if (!segment.startsWith('[')) { // 配列インデックスは除外
-                        th.ondblclick = (e) => {
-                            e.stopPropagation();
-                            this.startHeaderEdit(th, segment, parentParts, col.path.slice(0, d));
-                        };
-                        th.oncontextmenu = (e) => this.showHeaderContextMenu(e, segment, parentParts, col.path.slice(0, d));
-                    }
-
-                    // colspan の計算
-                    let colspan = 1;
-                    for (let j = i + 1; j < columnDefs.length; j++) {
-                        let match = true;
-                        for (let step = 0; step <= d; step++) {
-                            if (columnDefs[j].path[step] !== col.path[step]) {
-                                match = false;
-                                break;
-                            }
-                        }
-                        if (match) colspan++;
-                        else break;
-                    }
-                    if (colspan > 1) th.setAttribute('colspan', colspan);
-                    th.dataset.colIndex = i;
-                    th.dataset.colCount = colspan;
-
-                    // rowspan の計算 (これがパスの最後のセグメントなら下まで伸ばす)
-                    if (d === col.path.length - 1) {
-                        const rs = maxDepth - d;
-                        if (rs > 1) th.setAttribute('rowspan', rs);
-
-                        // リサイズハンドルは末端のセルに付ける
-                        const colId = col.path.join('.');
-                        const handle = document.createElement('div');
-                        handle.className = 'col-resize-handle';
-                        handle.dataset.col = colId;
-                        th.dataset.colId = colId;
-                        th.appendChild(handle);
-
-                        // グラフ（データバー）がある列の場合、見出しにも背景色を適用
-                        if (columnMaxMap.has(col)) {
-                            // セル (L=0.45) とほぼ同じ色 (L=0.452)
-                            th.style.backgroundColor = this.getBarColor(i, 0.46);
-                        }
-                    }
-
-                    // 開閉ボタンの追加
-                    const fullPathStr = col.path.slice(0, d + 1).join('.');
-                    const toggle = document.createElement('span');
-                    toggle.className = 'grid-toggle';
-
-                    if (col.isCollapsible && d === col.path.length - 1) {
-                        // リーフ（折りたたまれている状態）
-                        toggle.textContent = '▾';
-                        toggle.onclick = (e) => {
-                            e.stopPropagation();
-                            if (col.isArray) {
-                                this.expandedPaths.add(fullPathStr);
-                            } else {
-                                this.collapsedPaths.delete(fullPathStr);
-                            }
-                            this.render();
-                        };
-                        th.appendChild(toggle);
-                    } else if (d < col.path.length - 1) {
-                        // 中間ノード（展開されている状態）
-                        toggle.textContent = '▴';
-                        toggle.onclick = (e) => {
-                            e.stopPropagation();
-                            // 配列かオブジェクトかの判定
-                            // セグメントが [0] 形式、またはパス自体が配列として管理されている場合
-                            const isArrayNode = segment.startsWith('[') || this.expandedPaths.has(fullPathStr);
-
-                            if (isArrayNode) {
-                                this.expandedPaths.delete(fullPathStr);
-                            } else {
-                                this.collapsedPaths.add(fullPathStr);
-                            }
-                            this.render();
-                        };
-                        th.appendChild(toggle);
-                    }
-
-                    // スタイル
-                    const hClass = (segment.toLowerCase().includes('name') || segment.toLowerCase().includes('id')) ? 'col-name' :
-                        (segment.toLowerCase().includes('stats') || segment.toLowerCase().includes('val')) ? 'col-val' : '';
-                    if (hClass) th.classList.add(hClass);
-
-
-                    // sticky top の動的計算
-                    th.style.top = `${d * 23}px`;
-
+                const isNewGroup = i === 0 || !col.path.slice(0, d + 1).every((p, idx) => p === columnDefs[i - 1].path[idx]);
+                if (isNewGroup) {
+                    const th = this.createHeaderCell(col, d, i, columnDefs, maxDepth, columnMaxMap, parentParts);
                     tr.appendChild(th);
                 }
             }
             thead.appendChild(tr);
         }
         table.appendChild(thead);
-        this.container.appendChild(table);
+    }
 
-        // ボディ（まずは空で作成し、updateVirtualRowsで中身を埋める）
-        const tbody = document.createElement('tbody');
-        table.appendChild(tbody);
+    createHeaderCell(col, d, colIndex, columnDefs, maxDepth, columnMaxMap, parentParts) {
+        const segment = col.path[d];
+        const th = document.createElement('th');
+        const content = document.createElement('div');
+        content.className = 'th-content';
+        content.textContent = segment;
+        content.draggable = true;
 
-        this.updateVirtualRows();
+        this.setupHeaderDragEvents(content, th, col, d, segment, parentParts);
+
+        th.appendChild(content);
+
+        if (!segment.startsWith('[')) {
+            th.ondblclick = (e) => {
+                e.stopPropagation();
+                this.startHeaderEdit(th, segment, parentParts, col.path.slice(0, d));
+            };
+            th.oncontextmenu = (e) => this.showHeaderContextMenu(e, segment, parentParts, col.path.slice(0, d));
+        }
+
+        // Colspan
+        let colspan = 1;
+        for (let j = colIndex + 1; j < columnDefs.length; j++) {
+            if (col.path.slice(0, d + 1).every((p, idx) => p === columnDefs[j].path[idx])) colspan++;
+            else break;
+        }
+        if (colspan > 1) th.setAttribute('colspan', colspan);
+        th.dataset.colIndex = colIndex;
+        th.dataset.colCount = colspan;
+
+        // Rowspan & Leaf Logic
+        if (d === col.path.length - 1) {
+            const rs = maxDepth - d;
+            if (rs > 1) th.setAttribute('rowspan', rs);
+
+            const colId = col.path.join('.');
+            const handle = document.createElement('div');
+            handle.className = 'col-resize-handle';
+            handle.dataset.col = colId;
+            th.dataset.colId = colId;
+            th.appendChild(handle);
+
+            if (columnMaxMap.has(col)) {
+                th.style.backgroundColor = this.getBarColor(colIndex, 0.46);
+            }
+        }
+
+        this.addHeaderToggle(th, col, d);
+        th.style.top = `${d * GRID_CONSTANTS.HEADER_HEIGHT}px`;
+
+        const hClass = (segment.toLowerCase().includes('name') || segment.toLowerCase().includes('id')) ? 'col-name' :
+            (segment.toLowerCase().includes('stats') || segment.toLowerCase().includes('val')) ? 'col-val' : '';
+        if (hClass) th.classList.add(hClass);
+
+        return th;
+    }
+
+    setupHeaderDragEvents(content, th, col, d, segment, parentParts) {
+        content.ondragstart = (e) => {
+            if (e.target.classList.contains('col-resize-handle') || e.target.tagName === 'INPUT') {
+                e.preventDefault();
+                return;
+            }
+            e.dataTransfer.setData('application/json', JSON.stringify({
+                path: col.path.slice(0, d + 1),
+                parentPath: col.path.slice(0, d),
+                key: segment
+            }));
+            e.dataTransfer.effectAllowed = 'move';
+            th.classList.add('dragging-col');
+        };
+
+        content.ondragover = (e) => {
+            e.preventDefault();
+            if (document.querySelector('.dragging-col')) {
+                const rect = th.getBoundingClientRect();
+                const isLeft = e.clientX < rect.left + rect.width / 2;
+                th.classList.toggle('header-drag-over-left', isLeft);
+                th.classList.toggle('header-drag-over-right', !isLeft);
+                e.dataTransfer.dropEffect = 'move';
+            }
+        };
+
+        content.ondragleave = () => {
+            th.classList.remove('header-drag-over-left', 'header-drag-over-right');
+        };
+
+        content.ondrop = (e) => {
+            e.preventDefault();
+            const isRight = th.classList.contains('header-drag-over-right');
+            th.classList.remove('header-drag-over-left', 'header-drag-over-right');
+            const rawOpt = e.dataTransfer.getData('application/json');
+            if (!rawOpt) return;
+
+            try {
+                const srcData = JSON.parse(rawOpt);
+                const targetParentPath = col.path.slice(0, d);
+                if (JSON.stringify(srcData.parentPath) === JSON.stringify(targetParentPath)) {
+                    const fullParentPath = [...parentParts, ...srcData.parentPath];
+                    this.model.moveKey(fullParentPath, srcData.key, segment, isRight);
+                }
+            } catch (err) { console.error(err); }
+        };
+
+        content.ondragend = () => {
+            document.querySelectorAll('.dragging-col, .header-drag-over-left, .header-drag-over-right')
+                .forEach(el => el.classList.remove('dragging-col', 'header-drag-over-left', 'header-drag-over-right'));
+        };
+    }
+
+    addHeaderToggle(th, col, d) {
+        const fullPathStr = col.path.slice(0, d + 1).join('.');
+        if (col.isCollapsible && d === col.path.length - 1) {
+            const toggle = document.createElement('span');
+            toggle.className = 'grid-toggle';
+            toggle.textContent = '▾';
+            toggle.onclick = (e) => {
+                e.stopPropagation();
+                if (col.isArray) this.expandedPaths.add(fullPathStr);
+                else this.collapsedPaths.delete(fullPathStr);
+                this.render();
+            };
+            th.appendChild(toggle);
+        } else if (d < col.path.length - 1) {
+            const toggle = document.createElement('span');
+            toggle.className = 'grid-toggle';
+            toggle.textContent = '▴';
+            toggle.onclick = (e) => {
+                e.stopPropagation();
+                const segment = col.path[d];
+                const isArrayNode = segment.startsWith('[') || this.expandedPaths.has(fullPathStr);
+                if (isArrayNode) this.expandedPaths.delete(fullPathStr);
+                else this.collapsedPaths.add(fullPathStr);
+                this.render();
+            };
+            th.appendChild(toggle);
+        }
     }
 
     getBarColor(colIndex, lightness = 0.36) {
@@ -682,95 +590,117 @@ export class GridView {
 
     // --- マウスイベント (リサイズ / 範囲選択) ---
     handleMouseDown(e) {
-        if (e.target.classList.contains('col-resize-handle')) {
-            this.resizingCol = e.target.dataset.col;
-            this.startX = e.clientX;
-            const th = e.target.parentElement;
-            this.startWidth = th.offsetWidth;
-            document.body.style.cursor = 'col-resize';
-            e.preventDefault();
-            return;
-        }
+        if (this.editingCell) this.finishEdit();
+        this.contextMenu.hide();
 
         const cell = e.target.closest('.grid-cell');
         const indexCell = e.target.closest('.grid-index');
         const th = e.target.closest('th');
+        const resizeHandle = e.target.closest('.col-resize-handle');
 
-        if (indexCell && indexCell.tagName === 'TD') {
-            // 行番号をクリックした場合
-            const rowIndex = parseInt(indexCell.parentElement.dataset.index);
-            const table = indexCell.closest('.grid-table');
-            const colCount = table.querySelectorAll('colgroup col[data-col-id]').length;
+        if (resizeHandle) return this.handleResizeStart(e, resizeHandle);
+        if (cell) return this.handleCellMouseDown(e, cell);
+        if (indexCell) return this.handleIndexMouseDown(e, indexCell);
+        if (th) return this.handleHeaderMouseDown(e, th);
 
-            if (e.shiftKey && this.selectionAnchor) {
-                this.selectionFocus = { rowIndex, colIndex: colCount - 1 };
-            } else {
-                this.selectionAnchor = { rowIndex, colIndex: 0 };
-                this.selectionFocus = { rowIndex, colIndex: colCount - 1 };
-                this.isSelecting = true;
-            }
-            this.updateSelectionUI();
-            e.preventDefault();
-            return;
+        this.isSelecting = false;
+        this.updateSelectionUI();
+    }
+
+    handleResizeStart(e, handle) {
+        this.resizingCol = handle.dataset.col;
+        this.startX = e.clientX;
+        const col = this.container.querySelector(`col[data-col-id="${this.resizingCol}"]`);
+        this.startWidth = parseInt(col.style.width);
+        document.body.style.cursor = 'col-resize';
+        e.preventDefault();
+    }
+
+    handleCellMouseDown(e, cell) {
+        if (e.target.tagName === 'INPUT' || e.target.contentEditable === 'true') return;
+        e.preventDefault();
+
+        this.isHeaderSelecting = false;
+        const rowIndex = parseInt(cell.parentElement.dataset.index);
+        const colIndex = parseInt(cell.dataset.colIndex);
+
+        if (e.shiftKey && this.selectionAnchor) {
+            this.selectionFocus = { rowIndex, colIndex };
+        } else {
+            this.selectionAnchor = { rowIndex, colIndex };
+            this.selectionFocus = { rowIndex, colIndex };
+            this.isSelecting = true;
+            this.selectedPath = cell.dataset.path;
+            this.model.setSelection(this.selectedPath);
+        }
+        this.updateSelectionUI();
+    }
+
+    handleIndexMouseDown(e, indexCell) {
+        if (indexCell.tagName !== 'TD') return;
+        e.preventDefault();
+        const rowIndex = parseInt(indexCell.parentElement.dataset.index);
+        const colCount = this.columnDefs.length;
+
+        if (e.shiftKey && this.selectionAnchor) {
+            this.selectionFocus = { rowIndex, colIndex: colCount - 1 };
+        } else {
+            this.selectionAnchor = { rowIndex, colIndex: 0 };
+            this.selectionFocus = { rowIndex, colIndex: colCount - 1 };
+            this.isSelecting = true;
+        }
+        this.updateSelectionUI();
+        if (e.button === 2) this.showIndexContextMenu(e, rowIndex, this.lastGridContext.parentParts);
+    }
+
+    handleHeaderMouseDown(e, th) {
+        if (th.classList.contains('col-resize-handle') || e.target.classList.contains('grid-toggle')) return;
+        const colIndex = parseInt(th.dataset.colIndex);
+        if (isNaN(colIndex)) return;
+        e.preventDefault();
+
+        const colCount = parseInt(th.dataset.colCount);
+        const rowCount = this.lastGridContext.rows.length;
+
+        if (e.shiftKey && this.selectionAnchor) {
+            this.selectionFocus = { rowIndex: rowCount - 1, colIndex: colIndex + colCount - 1 };
+        } else {
+            this.selectionAnchor = { rowIndex: 0, colIndex: colIndex };
+            this.selectionFocus = { rowIndex: rowCount - 1, colIndex: colIndex + colCount - 1 };
+            this.isSelecting = true;
         }
 
-        if (th && !e.target.classList.contains('col-resize-handle') && !e.target.classList.contains('grid-toggle')) {
-            // 見出しをクリックした場合
-            const colIndex = parseInt(th.dataset.colIndex);
-            const colCount = parseInt(th.dataset.colCount);
-            if (!isNaN(colIndex)) {
-                const table = th.closest('.grid-table');
-                const rowCount = table.querySelectorAll('tbody .grid-row').length;
-
-                if (e.shiftKey && this.selectionAnchor) {
-                    this.selectionFocus = { rowIndex: rowCount - 1, colIndex: colIndex + colCount - 1 };
-                } else {
-                    this.selectionAnchor = { rowIndex: 0, colIndex: colIndex };
-                    this.selectionFocus = { rowIndex: rowCount - 1, colIndex: colIndex + colCount - 1 };
-                    this.isSelecting = true;
-                }
-
-                // ヘッダー選択
-                this.isHeaderSelecting = true;
-                const colDef = this.columnDefs[colIndex];
-                if (colDef) {
-                    this.headerSelection = {
-                        colId: colDef.path.join('.'),
-                        name: colDef.name,
-                        path: colDef.path
-                    };
-                }
-
-                this.updateSelectionUI();
-                e.preventDefault();
-                return;
-            }
+        this.isHeaderSelecting = true;
+        const colDef = this.columnDefs[colIndex];
+        if (colDef) {
+            this.headerSelection = {
+                colId: colDef.path.join('.'),
+                name: colDef.name,
+                path: colDef.path
+            };
         }
+        this.updateSelectionUI();
+    }
+
+    handleSelectionDrag(e) {
+        const cell = e.target.closest('.grid-cell');
+        const indexCell = e.target.closest('.grid-index');
+        const th = e.target.closest('th');
 
         if (cell) {
-            // 入力中などの場合はデフォルト挙動を許容
-            if (e.target.tagName === 'INPUT' || e.target.contentEditable === 'true') return;
-
-            e.preventDefault(); // テキスト選択などを防ぐ
-            this.isHeaderSelecting = false;
-            const rowIndex = parseInt(cell.parentElement.dataset.index);
-            const colIndex = parseInt(cell.dataset.colIndex);
-
-            if (e.shiftKey && this.selectionAnchor) {
-                // Shiftキー押下時は範囲を広げる
-                this.selectionFocus = { rowIndex, colIndex };
-            } else {
-                // 通常クリック時は新しい範囲を開始
-                this.selectionAnchor = { rowIndex, colIndex };
-                this.selectionFocus = { rowIndex, colIndex };
-                this.isSelecting = true;
-
-                // 単一パスの選択も同期
-                this.selectedPath = cell.dataset.path;
-                this.model.setSelection(this.selectedPath);
-            }
-            this.updateSelectionUI();
+            this.selectionFocus = {
+                rowIndex: parseInt(cell.parentElement.dataset.index),
+                colIndex: parseInt(cell.dataset.colIndex)
+            };
+        } else if (indexCell && indexCell.tagName === 'TD') {
+            const rowIndex = parseInt(indexCell.parentElement.dataset.index);
+            this.selectionFocus = { rowIndex, colIndex: this.columnDefs.length - 1 };
+        } else if (th && !isNaN(parseInt(th.dataset.colIndex))) {
+            const colIndex = parseInt(th.dataset.colIndex);
+            const colCount = parseInt(th.dataset.colCount);
+            this.selectionFocus = { rowIndex: this.lastGridContext.rows.length - 1, colIndex: colIndex + colCount - 1 };
         }
+        this.updateSelectionUI();
     }
 
     toggleWrapSelection() {
@@ -1178,26 +1108,26 @@ export class GridView {
             {
                 label: '上に1行挿入',
                 action: () => {
-                    const arrayPath = this.partsToPath(parentParts);
+                    const arrayPath = this.model.partsToPath(parentParts);
                     this.model.insertArrayElement(arrayPath, rowIndex);
                 }
             },
             {
                 label: '下に1行挿入',
                 action: () => {
-                    const arrayPath = this.partsToPath(parentParts);
+                    const arrayPath = this.model.partsToPath(parentParts);
                     this.model.insertArrayElement(arrayPath, rowIndex + 1);
                 }
             },
             {
                 label: 'この行を削除',
                 action: () => {
-                    const arrayPath = this.partsToPath(parentParts);
+                    const arrayPath = this.model.partsToPath(parentParts);
                     this.model.removeArrayElement(arrayPath, rowIndex);
                 }
             }
         ];
-        this.showContextMenu(e, items);
+        this.contextMenu.show(e, items);
     }
 
     showHeaderContextMenu(e, key, parentParts, subPathParts) {
@@ -1226,47 +1156,6 @@ export class GridView {
                 }
             }
         ];
-        this.showContextMenu(e, items);
-    }
-
-    showContextMenu(e, items) {
-        this.removeContextMenu();
-
-        const menu = document.createElement('div');
-        menu.className = 'context-menu';
-        menu.style.left = `${e.pageX}px`;
-        menu.style.top = `${e.pageY}px`;
-
-        items.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'context-menu-item';
-            div.textContent = item.label;
-            div.onclick = (ev) => {
-                ev.stopPropagation();
-                item.action();
-                this.removeContextMenu();
-            };
-            menu.appendChild(div);
-        });
-
-        document.body.appendChild(menu);
-        this.contextMenu = menu;
-
-        const closeMenu = () => {
-            this.removeContextMenu();
-            window.removeEventListener('click', closeMenu);
-            window.removeEventListener('contextmenu', closeMenu);
-        };
-        setTimeout(() => {
-            window.addEventListener('click', closeMenu);
-            window.addEventListener('contextmenu', closeMenu);
-        }, 0);
-    }
-
-    removeContextMenu() {
-        if (this.contextMenu) {
-            this.contextMenu.remove();
-            this.contextMenu = null;
-        }
+        this.contextMenu.show(e, items);
     }
 }

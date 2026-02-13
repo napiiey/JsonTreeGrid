@@ -87,35 +87,19 @@ class App {
         document.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             const key = e.key.toLowerCase();
-            if (e.ctrlKey || e.metaKey) {
-                if (key === 's') {
-                    e.preventDefault();
-                    if (e.shiftKey) this.saveFileAs();
-                    else this.saveFile();
-                } else if (key === 'o') {
-                    e.preventDefault();
-                    this.openFile();
-                } else if (key === 'z') {
-                    e.preventDefault();
-                    if (e.shiftKey) this.activeModel?.redo();
-                    else this.activeModel?.undo();
-                } else if (key === 'y') {
-                    e.preventDefault();
-                    this.activeModel?.redo();
-                } else if (key === 'c') {
-                    e.preventDefault();
-                    this.copySelection();
-                } else if (key === 'x') {
-                    e.preventDefault();
-                    this.cutSelection();
-                } else if (key === 'v') {
-                    e.preventDefault();
-                    this.pasteSelection();
-                } else if (key === 't') {
-                    // Ctrl+T は新規作成（ブラウザ標準は残したいかもしれないが、アプリ内操作として）
-                    // e.preventDefault();
-                    // this.newFile();
-                }
+            const isCtrl = e.ctrlKey || e.metaKey;
+
+            if (isCtrl) {
+                const shortcuts = {
+                    's': () => { e.preventDefault(); e.shiftKey ? this.saveFileAs() : this.saveFile(); },
+                    'o': () => { e.preventDefault(); this.openFile(); },
+                    'z': () => { e.preventDefault(); e.shiftKey ? this.activeModel?.redo() : this.activeModel?.undo(); },
+                    'y': () => { e.preventDefault(); this.activeModel?.redo(); },
+                    'c': () => { e.preventDefault(); this.copySelection(); },
+                    'x': () => { e.preventDefault(); this.cutSelection(); },
+                    'v': () => { e.preventDefault(); this.pasteSelection(); }
+                };
+                if (shortcuts[key]) shortcuts[key]();
             } else if (e.key === 'Delete' || e.key === 'Backspace') {
                 this.deleteSelection();
             }

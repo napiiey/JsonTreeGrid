@@ -186,6 +186,9 @@ body {
   vertical-align: middle;
   user-select: none;
   min-width: 0;
+  min-height: 26px;
+  height: 26px;
+  box-sizing: border-box;
 }
 
 .grid-table th.header-drag-over {
@@ -233,6 +236,7 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   width: 100%;
+  min-height: 1.2em;
 }
 
 .header-edit-input {
@@ -274,6 +278,8 @@ body {
   border: 1px solid #333;
   padding: 1px 8px;
   min-width: 0;
+  height: 22px;
+  box-sizing: border-box;
   /* width指定を優先 */
   white-space: nowrap;
   overflow: hidden;

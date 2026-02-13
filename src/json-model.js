@@ -71,25 +71,19 @@ export class JsonModel extends EventTarget {
 
     _updateValueInternal(path, value) {
         const parts = this.parsePath(path);
-        let current = this.data;
 
+        if (parts.length === 0) {
+            this.data = value;
+            return;
+        }
+
+        let current = this.data;
         for (let i = 0; i < parts.length - 1; i++) {
             current = current[parts[i]];
         }
 
         const lastKey = parts[parts.length - 1];
-
-        // 型の推論と変換
-        let convertedValue = value;
-        const originalValue = current[lastKey];
-
-        if (typeof originalValue === 'number') {
-            convertedValue = Number(value);
-        } else if (typeof originalValue === 'boolean') {
-            convertedValue = value === 'true' || value === true;
-        }
-
-        current[lastKey] = convertedValue;
+        current[lastKey] = value;
     }
 
     batchUpdateValues(updates) {

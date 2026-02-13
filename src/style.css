@@ -204,22 +204,23 @@ body {
 
 .grid-toggle {
   position: absolute;
-  bottom: 0px;
+  bottom: -3px;
   left: 0;
   width: 100%;
   /* 横幅いっぱいに広げてクリックしやすくする */
-  height: 10px;
-  line-height: 10px;
+  height: 12px;
+  line-height: 12px;
   text-align: center;
   cursor: pointer;
   color: #fff;
-  font-size: 8px;
+  font-size: 11px;
   z-index: 2;
+  opacity: 0.7;
 }
 
 .grid-toggle:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.1);
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .cell-object {

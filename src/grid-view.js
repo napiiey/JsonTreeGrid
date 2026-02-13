@@ -607,6 +607,7 @@ export class GridView {
         const { isArray, parentParts } = this.lastGridContext;
         const tr = document.createElement('tr');
         tr.className = 'grid-row';
+        if (rowIndex % 2 === 0) tr.classList.add('grid-row-even');
         tr.dataset.index = rowIndex;
 
         const indexTd = document.createElement('td');

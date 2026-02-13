@@ -84,9 +84,15 @@ export class TreeView {
 
         const nodeEl = document.createElement('div');
         nodeEl.className = `tree-node ${this.selectedPath === path ? 'selected' : ''}`;
-        nodeEl.style.paddingLeft = `${depth * 16}px`;
         nodeEl.style.userSelect = 'none'; // テキスト選択を防止してダブルクリックしやすくする
         nodeEl.dataset.path = path;
+
+        // インデントガイド用の要素を追加
+        for (let i = 0; i < depth; i++) {
+            const indent = document.createElement('span');
+            indent.className = 'tree-indent';
+            nodeEl.appendChild(indent);
+        }
 
         const toggle = document.createElement('span');
         toggle.className = 'toggle-icon';

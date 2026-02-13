@@ -310,8 +310,11 @@ body {
 .tree-node {
   white-space: nowrap;
   cursor: pointer;
-  padding: 2px 4px;
+  padding: 0 4px;
   border-radius: 3px;
+  display: flex;
+  align-items: center;
+  height: 22px;
 }
 
 .tree-node:hover {
@@ -320,6 +323,15 @@ body {
 
 .tree-node.selected {
   background-color: #333;
+}
+
+.tree-indent {
+  display: inline-block;
+  width: 16px;
+  height: 100%;
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+  vertical-align: middle;
+  flex-shrink: 0;
 }
 
 .tree-key {
@@ -375,6 +387,8 @@ body {
   min-height: 23px;
   height: 23px;
   box-sizing: border-box;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .grid-table th.header-drag-over {
@@ -492,6 +506,14 @@ body {
 
 .grid-row.drag-over-bottom {
   border-bottom: 2px solid #0078d4;
+}
+
+.grid-row {
+  transition: background 0.1s ease;
+}
+
+.grid-row-even {
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .grid-row:hover {

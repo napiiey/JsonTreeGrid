@@ -257,13 +257,23 @@ class App {
     // --- ファイル操作 ---
     newFile(isInitial = false) {
         const demoData = {
-            project: "JsonTreeGridSample",
-            version: 1.0,
-            settings: { theme: "dark", features: ["tree", "grid", "keyboard", "tabs"] },
-            monsters: [
-                { id: 1, name: "スライム", stats: { hp: 10, atk: 1, int: 0, def: 1 } },
-                { id: 2, name: "ゴブリン", stats: { hp: 15, atk: 2, int: 0, def: 2 } }
-            ]
+            title: "Sample RPG Enemy Database",
+            version: "1.0.0",
+            enemies: [
+                { id: 1, name: "Slime", type: "Normal", stats: { hp: 30, atk: 5, def: 3, spd: 2 }, drop: { item: "Gel", rate: 0.5 } },
+                { id: 2, name: "Goblin", type: "Normal", stats: { hp: 45, atk: 12, def: 8, spd: 6 }, drop: { item: "Short Sword", rate: 0.15 } },
+                { id: 3, name: "Wolf", type: "Beast", stats: { hp: 55, atk: 18, def: 5, spd: 14 }, drop: { item: "Fur", rate: 0.4 } },
+                { id: 4, name: "Skeleton", type: "Undead", stats: { hp: 60, atk: 15, def: 20, spd: 4 }, drop: { item: "Bone", rate: 0.35 } },
+                { id: 5, name: "Dark Mage", type: "Magic", stats: { hp: 40, atk: 25, def: 6, spd: 8 }, drop: { item: "Magic Scroll", rate: 0.1 } },
+                { id: 6, name: "Golem", type: "Normal", stats: { hp: 120, atk: 22, def: 35, spd: 1 }, drop: { item: "Stone Core", rate: 0.2 } },
+                { id: 7, name: "Dragon", type: "Boss", stats: { hp: 500, atk: 50, def: 40, spd: 12 }, drop: { item: "Dragon Scale", rate: 0.05 } },
+                { id: 8, name: "Phoenix", type: "Boss", stats: { hp: 350, atk: 45, def: 25, spd: 20 }, drop: { item: "Flame Feather", rate: 0.08 } }
+            ],
+            config: {
+                difficulty: "Normal",
+                scaling: { hpMultiplier: 1.0, atkMultiplier: 1.0 },
+                features: ["dataBar", "nestedHeaders", "dragReorder", "multiSelect"]
+            }
         };
         const defaultData = { "": "" };
         this.addTab(isInitial ? demoData : defaultData, isInitial ? 'sample.json' : '新規ファイル');

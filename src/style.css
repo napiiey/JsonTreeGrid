@@ -311,19 +311,19 @@ body {
 
 /* 選択範囲の境界線用 (上下左右) */
 .grid-cell.range-left {
-  border-left: 2px solid #0078d4 !important;
+  border-left: 1px solid #0078d4 !important;
 }
 
 .grid-cell.range-right {
-  border-right: 2px solid #0078d4 !important;
+  border-right: 1px solid #0078d4 !important;
 }
 
 .grid-cell.range-top {
-  border-top: 2px solid #0078d4 !important;
+  border-top: 1px solid #0078d4 !important;
 }
 
 .grid-cell.range-bottom {
-  border-bottom: 2px solid #0078d4 !important;
+  border-bottom: 1px solid #0078d4 !important;
 }
 
 .grid-index {

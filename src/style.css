@@ -37,7 +37,8 @@ body {
   font-size: 12px;
   user-select: none;
   position: relative;
-  overflow: hidden;
+  z-index: 100;
+  /* メニューがツールバー等の上に来るように */
 }
 
 #tab-container {

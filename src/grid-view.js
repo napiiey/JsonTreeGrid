@@ -950,13 +950,15 @@ export class GridView {
         cell.appendChild(input);
         input.focus();
 
-        if (options.append || options.initialValue !== undefined) {
-            // 末尾にカーソルを置く（追記または上書き開始時）
-            input.setSelectionRange(input.value.length, input.value.length);
-        } else {
-            // 全選択（通常編集開始時）
-            input.select();
-        }
+        // フォーカス直後のブラウザのデフォルト挙動を回避するため、次のフレームでカーソル位置を調整
+        requestAnimationFrame(() => {
+            if (options.append || options.initialValue !== undefined) {
+                const len = input.value.length;
+                input.setSelectionRange(len, len);
+            } else {
+                input.select();
+            }
+        });
 
         input.addEventListener('blur', () => {
             if (this.editingCell === cell) this.stopEdit(true);

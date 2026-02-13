@@ -121,7 +121,7 @@ class App {
         });
 
         // 初期データの読み込み（デモ用）
-        this.newFile(false); // 空データで開始
+        this.newFile(true); // アプリ起動時はサンプルデータを表示
     }
 
     closeAllMenus() {

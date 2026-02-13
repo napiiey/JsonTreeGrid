@@ -481,7 +481,7 @@ export class GridView {
 
 
                     // sticky top の動的計算
-                    th.style.top = `${d * 26}px`;
+                    th.style.top = `${d * 23}px`;
 
                     tr.appendChild(th);
                 }

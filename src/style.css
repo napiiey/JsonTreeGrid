@@ -535,3 +535,34 @@ body {
   background: #444;
   margin: 4px 0;
 }
+
+/* Drag & Drop Overlay */
+.drop-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.drop-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drop-message {
+  color: white;
+  font-size: 24px;
+  border: 4px dashed #666;
+  padding: 40px;
+  border-radius: 12px;
+  background: rgba(40, 40, 40, 0.9);
+}

@@ -142,6 +142,7 @@ class App {
 
         // 起動時に未保存のデータがあるか確認
         this.restoreFromLocalStorage();
+        this.setupDragAndDrop();
         this.updateToolbarStates();
 
         const toolbarInput = document.getElementById('toolbar-input');
@@ -159,6 +160,75 @@ class App {
                 this.applyToolbarEdit();
             });
         }
+    }
+
+    setupDragAndDrop() {
+        // オーバーレイ要素の作成
+        const overlay = document.createElement('div');
+        overlay.className = 'drop-overlay';
+        overlay.innerHTML = '<div class="drop-message">Drop JSON file here</div>';
+        document.body.appendChild(overlay);
+
+        let dragCounter = 0;
+
+        document.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            dragCounter++;
+            overlay.classList.add('active');
+        });
+
+        document.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dragCounter--;
+            if (dragCounter === 0) {
+                overlay.classList.remove('active');
+            }
+        });
+
+        document.addEventListener('dragover', (e) => {
+            e.preventDefault();
+        });
+
+        document.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            dragCounter = 0;
+            overlay.classList.remove('active');
+
+            if (e.dataTransfer.items) {
+                const item = e.dataTransfer.items[0];
+                if (item.kind === 'file') {
+                    // File System Access API (Chrome etc)
+                    if (item.getAsFileSystemHandle) {
+                        try {
+                            const handle = await item.getAsFileSystemHandle();
+                            if (handle.kind === 'file') {
+                                const file = await handle.getFile();
+                                if (file && file.name.endsWith('.json')) {
+                                    this.fileHandle = handle; // ハンドルを保存
+                                    const text = await file.text();
+                                    this.loadData(text);
+                                    document.title = `${file.name} - JsonTreeGrid`;
+                                    return; // 成功したら終了
+                                }
+                            }
+                        } catch (err) {
+                            console.warn('File System Access API failed, falling back to File API', err);
+                        }
+                    }
+
+                    // Fallback to standard File API
+                    const file = item.getAsFile();
+                    if (file && file.name.endsWith('.json')) {
+                        this.fileHandle = null; // ハンドルは取得できないのでリセット
+                        const text = await file.text();
+                        this.loadData(text);
+                        document.title = `${file.name} - JsonTreeGrid`;
+                    } else {
+                        alert('Please drop a JSON file.');
+                    }
+                }
+            }
+        });
     }
 
     updateToolbarInput(detail) {

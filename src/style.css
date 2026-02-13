@@ -538,7 +538,7 @@ body {
   left: 0;
   height: 100%;
   z-index: -1;
-  opacity: 0.4;
+  opacity: 1.0;
   transition: width 0.3s ease;
 }
 

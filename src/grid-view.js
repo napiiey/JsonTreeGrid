@@ -434,6 +434,13 @@ export class GridView {
                         handle.dataset.col = colId;
                         th.dataset.colId = colId;
                         th.appendChild(handle);
+
+                        // グラフ（データバー）がある列の場合、見出しにも背景色を適用
+                        if (columnMaxMap.has(col)) {
+                            // 両方不透明。データバー L=0.45 に対し、見出しは L=0.47
+                            th.style.backgroundColor = this.getBarColor(i, 0.47);
+                            th.style.color = '#fff';
+                        }
                     }
 
                     // 開閉ボタンの追加
@@ -497,15 +504,13 @@ export class GridView {
         this.updateVirtualRows();
     }
 
-    getBarColor(colIndex) {
+    getBarColor(colIndex, lightness = 0.45) {
         // 全体のカラム数から色相(Hue)を等間隔に分配
         const totalCols = this.columnDefs ? this.columnDefs.length : 10;
-        // OKLCH 色空間を使用することで、知覚的な明るさと鮮やかさを一定に保ちつつ、
-        // 隣り合う列での色変化を均一化する。
-        // L: Lightness (0-1), C: Chroma (0-0.4), H: Hue (0-360)
+        // OKLCH 色空間を使用
         const hue = (colIndex * (360 / Math.max(totalCols, 5))) % 360;
-        // モダンで高品質な外観のため L=0.65, C=0.12 程度に設定
-        return `oklch(0.65 0.12 ${hue})`;
+        // 鮮やかさ C=0.12 は固定
+        return `oklch(${lightness} 0.12 ${hue})`;
     }
 
     updateVirtualRows() {

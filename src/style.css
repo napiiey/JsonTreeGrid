@@ -28,15 +28,91 @@ body {
 }
 
 .menubar {
-  height: 24px;
+  height: 32px;
   background: #2a2a2a;
   display: flex;
   align-items: center;
   padding: 0 4px;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid #444;
   font-size: 12px;
   user-select: none;
   position: relative;
+  overflow: hidden;
+}
+
+#tab-container {
+  display: flex;
+  flex: 1;
+  height: 100%;
+  margin-left: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+#tab-container::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  height: 100%;
+  color: #888;
+  border-right: 1px solid #333;
+  cursor: pointer;
+  max-width: 160px;
+  min-width: 80px;
+  font-size: 11px;
+  position: relative;
+  background: #222;
+  transition: background 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  background: #2d2d2d;
+  color: #ddd;
+}
+
+.tab.active {
+  background: #333;
+  color: #fff;
+  border-top: 2px solid #0078d4;
+  margin-top: -1px;
+}
+
+.tab-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.tab-close {
+  margin-left: 8px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  font-size: 14px;
+  opacity: 0.3;
+  transition: opacity 0.2s, background 0.2s;
+}
+
+.tab-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  opacity: 1;
+}
+
+.tab:hover .tab-close {
+  opacity: 0.6;
+}
+
+.tab.active .tab-close {
+  opacity: 0.8;
 }
 
 /* メニュー共通 */
@@ -433,18 +509,13 @@ body {
 
 
 .grid-index {
-  background: #1e1e1e !important;
-  color: #666;
-  border: none !important;
-  border-right: 1px solid #333 !important;
-  border-bottom: none !important;
-  /* 行間の線を消す */
-  text-align: right;
-  width: 1px !important;
-  /* コンテンツに合わせて収縮させる */
-  min-width: unset !important;
-  padding: 1px 8px !important;
-  /* 左右に8pxのゆとりを持たせる */
+  background: #2d2d2d !important;
+  color: #ccc;
+  border: 1px solid #444 !important;
+  text-align: center;
+  width: 40px !important;
+  min-width: 40px !important;
+  padding: 0 4px !important;
   user-select: none;
   font-size: 11px;
   white-space: nowrap;

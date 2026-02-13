@@ -103,6 +103,11 @@ export class GridView {
         this.resizeObserver.observe(this.scroller);
     }
 
+    setModel(model) {
+        this.model = model;
+        this.render();
+    }
+
     setSelection(path) {
         this.selectedPath = path;
         this.render();

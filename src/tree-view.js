@@ -25,6 +25,11 @@ export class TreeView {
         });
     }
 
+    setModel(model) {
+        this.model = model;
+        this.render();
+    }
+
     toggle(path) {
         if (this.expandedPaths.has(path)) {
             this.expandedPaths.delete(path);

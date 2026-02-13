@@ -250,7 +250,7 @@ body {
 
 /* 2行目ヘッダーの固定位置調整 */
 .grid-table thead tr:nth-child(2) th {
-  top: 29px;
+  top: 26px;
   /* 1行目の高さ(padding+border込み)に合わせる */
 }
 

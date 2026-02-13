@@ -447,7 +447,7 @@ export class GridView {
                     if (segment === activeKey) th.style.background = '#0078d4';
 
                     // sticky top の動的計算
-                    th.style.top = `${d * 30}px`;
+                    th.style.top = `${d * 26}px`;
 
                     tr.appendChild(th);
                 }

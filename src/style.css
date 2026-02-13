@@ -34,7 +34,7 @@ body {
   align-items: center;
   padding: 0 4px;
   border-bottom: 1px solid #333;
-  font-size: 13px;
+  font-size: 12px;
   user-select: none;
   position: relative;
 }
@@ -92,7 +92,7 @@ body {
   left: 50%;
   transform: translateX(-50%);
   color: #888;
-  font-size: 12px;
+  font-size: 11px;
   pointer-events: none;
   /* 下のメニュー操作を邪魔しないように */
 }
@@ -137,7 +137,7 @@ body {
 #tree-container {
   padding: 10px;
   font-family: monospace;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .tree-node {
@@ -170,7 +170,7 @@ body {
 
 .grid-table {
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 12px;
   width: auto;
   table-layout: fixed;
 }
@@ -243,7 +243,7 @@ body {
   color: #fff;
   border: 1px solid #0078d4;
   padding: 0 4px;
-  font-size: 13px;
+  font-size: 12px;
   outline: none;
   font-weight: normal;
 }
@@ -430,7 +430,7 @@ body {
   padding: 8px 16px;
   cursor: pointer;
   color: #ddd;
-  font-size: 13px;
+  font-size: 12px;
   transition: background 0.2s;
 }
 

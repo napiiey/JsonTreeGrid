@@ -121,7 +121,7 @@ class App {
         });
 
         // 初期データの読み込み（デモ用）
-        this.newFile(true); // デモデータをセット
+        this.newFile(false); // 空データで開始
     }
 
     closeAllMenus() {
@@ -130,9 +130,7 @@ class App {
 
     newFile(isInitial = false) {
         const defaultData = {
-            project: "New Project",
-            version: 1.0,
-            data: []
+            "": ""
         };
         const demoData = {
             project: "JsonTreeGridSample",

@@ -36,6 +36,8 @@ export class GridView {
 
         // 折り返し設定されたカラムID
         this.wrappedColumnIds = new Set();
+        this.headerSelection = null; // { colId, pathParts }
+        this.isHeaderSelecting = false;
 
         // 編集・選択のイベントは mousedown/dblclick で管理
 
@@ -722,6 +724,18 @@ export class GridView {
                     this.selectionFocus = { rowIndex: rowCount - 1, colIndex: colIndex + colCount - 1 };
                     this.isSelecting = true;
                 }
+
+                // ヘッダー選択
+                this.isHeaderSelecting = true;
+                const colDef = this.columnDefs[colIndex];
+                if (colDef) {
+                    this.headerSelection = {
+                        colId: colDef.path.join('.'),
+                        name: colDef.name,
+                        path: colDef.path
+                    };
+                }
+
                 this.updateSelectionUI();
                 e.preventDefault();
                 return;
@@ -733,6 +747,7 @@ export class GridView {
             if (e.target.tagName === 'INPUT' || e.target.contentEditable === 'true') return;
 
             e.preventDefault(); // テキスト選択などを防ぐ
+            this.isHeaderSelecting = false;
             const rowIndex = parseInt(cell.parentElement.dataset.index);
             const colIndex = parseInt(cell.dataset.colIndex);
 
@@ -838,14 +853,30 @@ export class GridView {
             td.classList.toggle('selected', r === this.selectionAnchor.rowIndex && c === this.selectionAnchor.colIndex);
         });
 
-        // アクティブなセルの同期（アンカー位置を開始点とする）
-        const activeCell = this.container.querySelector(`.grid-row[data-index="${this.selectionAnchor.rowIndex}"] .grid-cell[data-col-index="${this.selectionAnchor.colIndex}"]`);
-        if (activeCell && activeCell.dataset.path !== this.selectedPath) {
-            this.selectedPath = activeCell.dataset.path;
-            this.model.setSelection(this.selectedPath);
+        // アクティブな項目の通知
+        if (this.isHeaderSelecting && this.headerSelection) {
+            this.model.dispatchEvent(new CustomEvent('selectionChange', {
+                detail: {
+                    path: this.selectedPath,
+                    header: this.headerSelection,
+                    type: 'key'
+                }
+            }));
         } else {
-            // パスが変わっていなくても、選択範囲（列）が変わった可能性があるので通知
-            this.model.dispatchEvent(new CustomEvent('selectionChange', { detail: { path: this.selectedPath } }));
+            const activeCell = this.container.querySelector(`.grid-row[data-index="${this.selectionAnchor.rowIndex}"] .grid-cell[data-col-index="${this.selectionAnchor.colIndex}"]`);
+            this.headerSelection = null;
+
+            if (activeCell && activeCell.dataset.path !== this.selectedPath) {
+                this.selectedPath = activeCell.dataset.path;
+                this.model.setSelection(this.selectedPath);
+            } else {
+                this.model.dispatchEvent(new CustomEvent('selectionChange', {
+                    detail: {
+                        path: this.selectedPath,
+                        type: 'value'
+                    }
+                }));
+            }
         }
     }
 

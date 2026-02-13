@@ -55,9 +55,11 @@ export class JsonModel extends EventTarget {
         return this.data;
     }
 
-    setSelection(path) {
+    setSelection(path, extraDetail = {}) {
         this.selectionPath = path;
-        this.dispatchEvent(new CustomEvent('selectionChange', { detail: { path } }));
+        this.dispatchEvent(new CustomEvent('selectionChange', {
+            detail: { path, ...extraDetail }
+        }));
     }
 
     updateValue(path, value) {

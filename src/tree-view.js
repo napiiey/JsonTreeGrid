@@ -13,7 +13,8 @@ export class TreeView {
             if (e.target.classList.contains('toggle-icon')) {
                 this.toggle(path);
             } else {
-                this.select(path);
+                const isKeySelected = e.target.classList.contains('tree-key');
+                this.select(path, isKeySelected);
             }
         });
 
@@ -34,8 +35,8 @@ export class TreeView {
         this.render();
     }
 
-    select(path) {
-        if (this.selectedPath === path) return;
+    select(path, isKeySelected = false) {
+        if (this.selectedPath === path && !isKeySelected) return;
 
         // 以前の選択を解除
         const prevSelected = this.container.querySelector('.tree-node.selected');
@@ -47,7 +48,19 @@ export class TreeView {
         const nextSelected = this.container.querySelector(`.tree-node[data-path="${CSS.escape(path)}"]`);
         if (nextSelected) nextSelected.classList.add('selected');
 
-        this.model.setSelection(path);
+        const detail = {};
+        if (isKeySelected && path !== 'root') {
+            const parts = this.model.parsePath(path);
+            detail.header = {
+                name: String(parts[parts.length - 1]),
+                path: parts
+            };
+            detail.type = 'key';
+        } else {
+            detail.type = 'value';
+        }
+
+        this.model.setSelection(path, detail);
     }
 
     render() {
@@ -75,14 +88,31 @@ export class TreeView {
         toggle.textContent = hasChildren ? (isExpanded ? '▼' : '▶') : ' ';
         nodeEl.appendChild(toggle);
 
-        const label = document.createElement('span');
-        let labelText = name;
-        if (isArray) labelText += ` [${data.length}]`;
-        else if (isObject) labelText += ` { }`;
-        else labelText += `: ${data}`;
+        const keySpan = document.createElement('span');
+        keySpan.className = 'tree-key';
+        keySpan.textContent = name;
+        nodeEl.appendChild(keySpan);
 
-        label.textContent = labelText;
-        nodeEl.appendChild(label);
+        if (!isObject) {
+            const sep = document.createElement('span');
+            sep.textContent = ': ';
+            nodeEl.appendChild(sep);
+
+            const valSpan = document.createElement('span');
+            valSpan.className = 'tree-value';
+            valSpan.textContent = String(data);
+            nodeEl.appendChild(valSpan);
+        } else if (isArray) {
+            const info = document.createElement('span');
+            info.className = 'tree-info';
+            info.textContent = ` [${data.length}]`;
+            nodeEl.appendChild(info);
+        } else {
+            const info = document.createElement('span');
+            info.className = 'tree-info';
+            info.textContent = ` { }`;
+            nodeEl.appendChild(info);
+        }
 
         container.appendChild(nodeEl);
 

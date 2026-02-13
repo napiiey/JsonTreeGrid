@@ -22,8 +22,9 @@ class App {
         });
 
         this.model.addEventListener('selectionChange', (e) => {
-            this.gridView.setSelection(e.detail.path);
+            this.gridView.setSelection(e.detail.path, e.detail);
             this.updateToolbarStates();
+            this.updateToolbarInput(e.detail);
         });
 
         // リサイザーの設定
@@ -142,6 +143,80 @@ class App {
         // 起動時に未保存のデータがあるか確認
         this.restoreFromLocalStorage();
         this.updateToolbarStates();
+
+        const toolbarInput = document.getElementById('toolbar-input');
+        if (toolbarInput) {
+            toolbarInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    this.applyToolbarEdit();
+                    toolbarInput.blur();
+                } else if (e.key === 'Escape') {
+                    this.updateToolbarInput(this.currentSelectionDetail);
+                    toolbarInput.blur();
+                }
+            });
+            toolbarInput.addEventListener('blur', () => {
+                this.applyToolbarEdit();
+            });
+        }
+    }
+
+    updateToolbarInput(detail) {
+        this.currentSelectionDetail = detail;
+        const input = document.getElementById('toolbar-input');
+        if (!input) return;
+
+        if (!detail || (!detail.path && !detail.header)) {
+            input.value = '';
+            input.disabled = true;
+            return;
+        }
+
+        input.disabled = false;
+        if (detail.header) {
+            // キー名の編集
+            input.value = detail.header.name;
+        } else {
+            // 値の編集
+            const val = this.model.getValueByPath(this.model.parsePath(detail.path));
+            if (val !== null && typeof val === 'object') {
+                input.value = Array.isArray(val) ? '[ Array ]' : '{ Object }';
+                input.disabled = true;
+            } else {
+                input.value = val !== undefined ? String(val) : '';
+            }
+        }
+    }
+
+    applyToolbarEdit() {
+        if (!this.currentSelectionDetail) return;
+        const input = document.getElementById('toolbar-input');
+        if (!input || input.disabled) return;
+
+        const newValue = input.value;
+        const detail = this.currentSelectionDetail;
+
+        if (detail.header) {
+            // キー名の変更
+            const { path } = detail.header;
+            const oldKey = path[path.length - 1];
+            const baseParts = path.slice(0, -1);
+            if (newValue && newValue !== oldKey) {
+                this.model.renameKey(baseParts, [], oldKey, newValue);
+            }
+        } else if (detail.path) {
+            // 値の更新
+            const parts = this.model.parsePath(detail.path);
+            const oldVal = this.model.getValueByPath(parts);
+            if (String(oldVal) !== newValue) {
+                // 型を維持しようとする簡易的な変換
+                let typedValue = newValue;
+                if (typeof oldVal === 'number') typedValue = Number(newValue);
+                else if (typeof oldVal === 'boolean') typedValue = newValue.toLowerCase() === 'true';
+
+                this.model.updateValue(detail.path, typedValue);
+            }
+        }
     }
 
     updateToolbarStates() {

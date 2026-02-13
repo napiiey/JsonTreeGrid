@@ -28,7 +28,7 @@ body {
 }
 
 .menubar {
-  height: 30px;
+  height: 24px;
   background: #2a2a2a;
   display: flex;
   align-items: center;
@@ -42,7 +42,7 @@ body {
 /* メニュー共通 */
 .menu-item,
 .menu-label {
-  padding: 2px 8px;
+  padding: 1px 8px;
   cursor: pointer;
   border-radius: 3px;
 }
@@ -77,7 +77,7 @@ body {
 }
 
 .dropdown-item {
-  padding: 4px 12px;
+  padding: 2px 12px;
   cursor: pointer;
   color: #ddd;
 }
@@ -98,7 +98,7 @@ body {
 }
 
 .toolbar {
-  height: 28px;
+  height: 26px;
   background: #333;
   display: flex;
   align-items: center;
@@ -141,6 +141,47 @@ body {
 
 .tool-button svg {
   pointer-events: none;
+}
+
+.formula-bar {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background: #252525;
+  border: 1px solid #444;
+  height: 22px;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-left: 4px;
+}
+
+.formula-label {
+  padding: 0 8px;
+  color: #888;
+  font-style: italic;
+  font-size: 11px;
+  border-right: 1px solid #444;
+  background: #2d2d2d;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  user-select: none;
+}
+
+#toolbar-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #eee;
+  padding: 0 8px;
+  font-size: 12px;
+  outline: none;
+  height: 100%;
+  font-family: inherit;
+}
+
+#toolbar-input::placeholder {
+  color: #555;
 }
 
 .editor-container {
@@ -198,7 +239,25 @@ body {
 }
 
 .tree-node.selected {
-  background: #004a8c;
+  background-color: #333;
+}
+
+.tree-key {
+  color: #9cdcfe;
+  cursor: pointer;
+}
+
+.tree-key:hover {
+  text-decoration: underline;
+}
+
+.tree-value {
+  color: #ce9178;
+}
+
+.tree-info {
+  color: #6a9955;
+  font-style: italic;
 }
 
 .toggle-icon {

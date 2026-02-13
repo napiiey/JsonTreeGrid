@@ -103,9 +103,19 @@ class App {
             // 入力中（inputやtextarea）はショートカットを無効化
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
+            const key = e.key.toLowerCase();
             if (e.ctrlKey || e.metaKey) {
-                const key = e.key.toLowerCase();
-                if (key === 'z') {
+                if (key === 's') {
+                    e.preventDefault();
+                    if (e.shiftKey) {
+                        this.saveFileAs();
+                    } else {
+                        this.saveFile();
+                    }
+                } else if (key === 'o') {
+                    e.preventDefault();
+                    this.openFile();
+                } else if (key === 'z') {
                     e.preventDefault();
                     if (e.shiftKey) this.model.redo();
                     else this.model.undo();

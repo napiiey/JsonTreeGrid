@@ -66,7 +66,7 @@ body {
   background: #2a2a2a;
   border: 1px solid #444;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-  min-width: 150px;
+  min-width: 250px;
   z-index: 1000;
   padding: 4px 0;
   border-radius: 0 0 4px 4px;
@@ -80,10 +80,23 @@ body {
   padding: 2px 12px;
   cursor: pointer;
   color: #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
 }
 
 .dropdown-item:hover {
   background: #0078d4;
+  color: white;
+}
+
+.shortcut {
+  color: #888;
+  font-size: 11px;
+}
+
+.dropdown-item:hover .shortcut {
   color: white;
 }
 

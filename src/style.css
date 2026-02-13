@@ -43,11 +43,13 @@ body {
 
 #tab-container {
   display: flex;
+  overflow-x: auto;
   flex: 1;
   height: 100%;
-  margin-left: 12px;
-  overflow-x: auto;
   scrollbar-width: none;
+  margin-left: 12px;
+  border-left: 1px solid #444;
+  padding-left: 4px;
 }
 
 #tab-container::-webkit-scrollbar {

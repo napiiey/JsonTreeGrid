@@ -527,26 +527,6 @@ body {
 
 
 /* Data Bars (Progress-like background) */
-.grid-table th.col-hp {
-  background-color: #4caf50;
-  color: white;
-}
-
-.grid-table th.col-atk {
-  background-color: #f44336;
-  color: white;
-}
-
-.grid-table th.col-int {
-  background-color: #2196f3;
-  color: white;
-}
-
-.grid-table th.col-def {
-  background-color: #cddc39;
-  color: black;
-}
-
 .grid-cell.has-bar {
   position: relative;
   z-index: 0;
@@ -560,26 +540,6 @@ body {
   z-index: -1;
   opacity: 0.4;
   transition: width 0.3s ease;
-}
-
-.bar-green {
-  background-color: #4caf50;
-}
-
-.bar-red {
-  background-color: #f44336;
-}
-
-.bar-blue {
-  background-color: #2196f3;
-}
-
-.bar-yellow {
-  background-color: #ffeb3b;
-}
-
-.bar-grey {
-  background-color: #888;
 }
 
 .grid-cell input {

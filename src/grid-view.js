@@ -240,14 +240,6 @@ export class GridView {
         this.columnDefs = columnDefs;
         this.lastGridContext = context;
 
-        const getHeaderClass = (col) => {
-            const c = col.toLowerCase();
-            if (c.includes('hp')) return 'col-hp';
-            if (c.includes('atk')) return 'col-atk';
-            if (c.includes('int')) return 'col-int';
-            if (c.includes('def')) return 'col-def';
-            return '';
-        };
 
         // ヘッダーの手前にcolgroupを追加
         const colgroup = document.createElement('colgroup');
@@ -505,13 +497,15 @@ export class GridView {
         this.updateVirtualRows();
     }
 
-    getColorClass(colName) {
-        const c = colName.toLowerCase();
-        if (c.includes('hp')) return 'bar-green';
-        if (c.includes('atk')) return 'bar-red';
-        if (c.includes('int')) return 'bar-blue';
-        if (c.includes('def')) return 'bar-yellow';
-        return 'bar-grey';
+    getBarColor(colIndex) {
+        // 全体のカラム数から色相(Hue)を等間隔に分配
+        const totalCols = this.columnDefs ? this.columnDefs.length : 10;
+        // OKLCH 色空間を使用することで、知覚的な明るさと鮮やかさを一定に保ちつつ、
+        // 隣り合う列での色変化を均一化する。
+        // L: Lightness (0-1), C: Chroma (0-0.4), H: Hue (0-360)
+        const hue = (colIndex * (360 / Math.max(totalCols, 5))) % 360;
+        // モダンで高品質な外観のため L=0.65, C=0.12 程度に設定
+        return `oklch(0.65 0.12 ${hue})`;
     }
 
     updateVirtualRows() {
@@ -646,8 +640,9 @@ export class GridView {
             if (max !== undefined && !isNaN(num)) {
                 const percent = Math.min(100, Math.max(0, (num / max) * 100));
                 const bar = document.createElement('div');
-                bar.className = `data-bar ${this.getColorClass(colDef.name)}`;
+                bar.className = 'data-bar';
                 bar.style.width = `${percent}%`;
+                bar.style.backgroundColor = this.getBarColor(colIndex);
                 td.classList.add('has-bar');
                 td.appendChild(bar);
             }

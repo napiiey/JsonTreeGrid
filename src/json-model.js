@@ -38,6 +38,14 @@ export class JsonModel extends EventTarget {
         this.dispatchEvent(new CustomEvent('dataChange'));
     }
 
+    canUndo() {
+        return this.undoStack.length > 0;
+    }
+
+    canRedo() {
+        return this.redoStack.length > 0;
+    }
+
     setData(json) {
         this.data = json;
         this.dispatchEvent(new CustomEvent('dataChange'));

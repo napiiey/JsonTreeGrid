@@ -97,6 +97,52 @@ body {
   /* 下のメニュー操作を邪魔しないように */
 }
 
+.toolbar {
+  height: 32px;
+  background: #333;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  border-bottom: 1px solid #222;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: #444;
+  margin: 0 8px;
+}
+
+.tool-button {
+  background: transparent;
+  border: none;
+  color: #ccc;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.2s, color 0.2s;
+  padding: 0;
+}
+
+.tool-button:hover {
+  background: #444;
+  color: white;
+}
+
+.tool-button:disabled {
+  opacity: 0.3;
+  cursor: default;
+  pointer-events: none;
+}
+
+.tool-button svg {
+  pointer-events: none;
+}
+
 .editor-container {
   flex: 1;
   display: flex;

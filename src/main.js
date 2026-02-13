@@ -69,10 +69,13 @@ class App {
             'menu-save-as': () => this.saveFileAs(),
             'menu-undo': () => this.model.undo(),
             'menu-redo': () => this.model.redo(),
+            'toolbar-undo': () => this.model.undo(),
+            'toolbar-redo': () => this.model.redo(),
             'menu-cut': () => this.cutSelection(),
             'menu-copy': () => this.copySelection(),
             'menu-paste': () => this.pasteSelection(),
-            'menu-delete': () => this.deleteSelection()
+            'menu-delete': () => this.deleteSelection(),
+            'toolbar-save': () => this.saveFile()
         };
 
         Object.keys(menuActions).forEach(id => {
@@ -122,6 +125,41 @@ class App {
 
         // 初期データの読み込み（デモ用）
         this.newFile(true); // アプリ起動時はサンプルデータを表示
+
+        // オフライン・データ保護のための localStorage 自動保存
+        this.model.addEventListener('dataChange', () => {
+            const data = this.model.getData();
+            if (data) {
+                localStorage.setItem('jsontreegrid_autosave', JSON.stringify(data));
+            }
+            this.updateToolbarStates();
+        });
+
+        // 起動時に未保存のデータがあるか確認
+        this.restoreFromLocalStorage();
+        this.updateToolbarStates();
+    }
+
+    updateToolbarStates() {
+        const undoBtn = document.getElementById('toolbar-undo');
+        const redoBtn = document.getElementById('toolbar-redo');
+        if (undoBtn) undoBtn.disabled = !this.model.canUndo();
+        if (redoBtn) redoBtn.disabled = !this.model.canRedo();
+    }
+
+    restoreFromLocalStorage() {
+        const savedData = localStorage.getItem('jsontreegrid_autosave');
+        if (savedData) {
+            try {
+                const data = JSON.parse(savedData);
+                // 簡易的な確認
+                if (confirm('前回の未保存データが見つかりました。復元しますか？')) {
+                    this.model.setData(data);
+                }
+            } catch (e) {
+                console.error('Failed to restore autosave', e);
+            }
+        }
     }
 
     closeAllMenus() {
@@ -189,9 +227,12 @@ class App {
             await writable.write(JSON.stringify(json, null, 2));
             await writable.close();
             console.log('Saved to', this.fileHandle.name);
+            // 保存成功したらオートセーブを消去して良いが、安全のため残しておくのも手
+            // ここでは特に何もしない
         } catch (err) {
             console.error(err);
-            alert('保存に失敗しました。権限が拒否された可能性があります。');
+            if (err.name === 'AbortError') return;
+            alert('保存に失敗しました。オフライン保存（localStorage）は継続されます。');
         }
     }
 

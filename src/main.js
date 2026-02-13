@@ -9,6 +9,7 @@ class App {
         this.treeView = new TreeView(document.getElementById('tree-container'), this.model);
         this.gridView = new GridView(document.getElementById('grid-container'), this.model);
         this.fileHandle = null;
+        this.isDirty = false;
 
         this.init();
     }
@@ -133,6 +134,7 @@ class App {
             if (data) {
                 localStorage.setItem('jsontreegrid_autosave', JSON.stringify(data));
             }
+            this.isDirty = true;
             this.updateToolbarStates();
         });
 
@@ -144,8 +146,10 @@ class App {
     updateToolbarStates() {
         const undoBtn = document.getElementById('toolbar-undo');
         const redoBtn = document.getElementById('toolbar-redo');
+        const saveBtn = document.getElementById('toolbar-save');
         if (undoBtn) undoBtn.disabled = !this.model.canUndo();
         if (redoBtn) redoBtn.disabled = !this.model.canRedo();
+        if (saveBtn) saveBtn.disabled = !this.isDirty;
     }
 
     restoreFromLocalStorage() {
@@ -190,6 +194,8 @@ class App {
         this.model.setData(isInitial ? demoData : defaultData);
         this.model.setSelection('root');
         this.fileHandle = null;
+        this.isDirty = false;
+        this.updateToolbarStates();
         document.getElementById('file-info').textContent = '新規ファイル';
     }
 
@@ -207,6 +213,8 @@ class App {
 
             this.model.setData(json);
             this.fileHandle = handle;
+            this.isDirty = false;
+            this.updateToolbarStates();
             document.getElementById('file-info').textContent = file.name;
             this.model.setSelection('root');
         } catch (err) {
@@ -228,6 +236,8 @@ class App {
             await writable.write(JSON.stringify(json, null, 2));
             await writable.close();
             console.log('Saved to', this.fileHandle.name);
+            this.isDirty = false;
+            this.updateToolbarStates();
             // 保存成功したらオートセーブを消去して良いが、安全のため残しておくのも手
             // ここでは特に何もしない
         } catch (err) {

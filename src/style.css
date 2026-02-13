@@ -273,7 +273,7 @@ body {
 
 .grid-table td {
   border: 1px solid #333;
-  padding: 4px 8px;
+  padding: 1px 8px;
   min-width: 0;
   /* width指定を優先 */
   white-space: nowrap;
@@ -337,7 +337,7 @@ body {
   width: 1px !important;
   /* コンテンツに合わせて収縮させる */
   min-width: unset !important;
-  padding: 4px 8px !important;
+  padding: 1px 8px !important;
   /* 左右に8pxのゆとりを持たせる */
   user-select: none;
   font-size: 11px;

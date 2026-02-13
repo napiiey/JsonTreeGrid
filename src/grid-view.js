@@ -43,13 +43,27 @@ export class GridView {
         this.container.addEventListener('mouseover', (e) => {
             if (this.isSelecting) {
                 const cell = e.target.closest('.grid-cell');
+                const indexCell = e.target.closest('.grid-index');
+                const th = e.target.closest('th');
+
                 if (cell) {
                     this.selectionFocus = {
                         rowIndex: parseInt(cell.parentElement.dataset.index),
                         colIndex: parseInt(cell.dataset.colIndex)
                     };
-                    this.updateSelectionUI();
+                } else if (indexCell && indexCell.tagName === 'TD') {
+                    const rowIndex = parseInt(indexCell.parentElement.dataset.index);
+                    const table = indexCell.closest('.grid-table');
+                    const colCount = table.querySelectorAll('colgroup col[data-col-id]').length;
+                    this.selectionFocus = { rowIndex, colIndex: colCount - 1 };
+                } else if (th && !isNaN(parseInt(th.dataset.colIndex))) {
+                    const colIndex = parseInt(th.dataset.colIndex);
+                    const colCount = parseInt(th.dataset.colCount);
+                    const table = th.closest('.grid-table');
+                    const rowCount = table.querySelectorAll('tbody .grid-row').length;
+                    this.selectionFocus = { rowIndex: rowCount - 1, colIndex: colIndex + colCount - 1 };
                 }
+                this.updateSelectionUI();
             }
         });
 
@@ -388,6 +402,8 @@ export class GridView {
                         else break;
                     }
                     if (colspan > 1) th.setAttribute('colspan', colspan);
+                    th.dataset.colIndex = i;
+                    th.dataset.colCount = colspan;
 
                     // rowspan の計算 (これがパスの最後のセグメントなら下まで伸ばす)
                     if (d === col.path.length - 1) {
@@ -444,7 +460,7 @@ export class GridView {
                     const hClass = (segment.toLowerCase().includes('name') || segment.toLowerCase().includes('id')) ? 'col-name' :
                         (segment.toLowerCase().includes('stats') || segment.toLowerCase().includes('val')) ? 'col-val' : '';
                     if (hClass) th.classList.add(hClass);
-                    if (segment === activeKey) th.style.background = '#0078d4';
+
 
                     // sticky top の動的計算
                     th.style.top = `${d * 26}px`;
@@ -513,9 +529,7 @@ export class GridView {
                 if (cellPath === this.selectedPath) {
                     td.classList.add('selected');
                 }
-                if (colDef.name === activeKey || colDef.parent === activeKey) {
-                    td.classList.add('active-col');
-                }
+
 
                 tr.appendChild(td);
             });
@@ -541,6 +555,48 @@ export class GridView {
         }
 
         const cell = e.target.closest('.grid-cell');
+        const indexCell = e.target.closest('.grid-index');
+        const th = e.target.closest('th');
+
+        if (indexCell && indexCell.tagName === 'TD') {
+            // 行番号をクリックした場合
+            const rowIndex = parseInt(indexCell.parentElement.dataset.index);
+            const table = indexCell.closest('.grid-table');
+            const colCount = table.querySelectorAll('colgroup col[data-col-id]').length;
+
+            if (e.shiftKey && this.selectionAnchor) {
+                this.selectionFocus = { rowIndex, colIndex: colCount - 1 };
+            } else {
+                this.selectionAnchor = { rowIndex, colIndex: 0 };
+                this.selectionFocus = { rowIndex, colIndex: colCount - 1 };
+                this.isSelecting = true;
+            }
+            this.updateSelectionUI();
+            e.preventDefault();
+            return;
+        }
+
+        if (th && !e.target.classList.contains('col-resize-handle') && !e.target.classList.contains('grid-toggle')) {
+            // 見出しをクリックした場合
+            const colIndex = parseInt(th.dataset.colIndex);
+            const colCount = parseInt(th.dataset.colCount);
+            if (!isNaN(colIndex)) {
+                const table = th.closest('.grid-table');
+                const rowCount = table.querySelectorAll('tbody .grid-row').length;
+
+                if (e.shiftKey && this.selectionAnchor) {
+                    this.selectionFocus = { rowIndex: rowCount - 1, colIndex: colIndex + colCount - 1 };
+                } else {
+                    this.selectionAnchor = { rowIndex: 0, colIndex: colIndex };
+                    this.selectionFocus = { rowIndex: rowCount - 1, colIndex: colIndex + colCount - 1 };
+                    this.isSelecting = true;
+                }
+                this.updateSelectionUI();
+                e.preventDefault();
+                return;
+            }
+        }
+
         if (cell) {
             // 入力中などの場合はデフォルト挙動を許容
             if (e.target.tagName === 'INPUT' || e.target.contentEditable === 'true') return;

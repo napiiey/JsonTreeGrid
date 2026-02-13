@@ -345,9 +345,7 @@ body {
   white-space: nowrap;
 }
 
-.grid-cell.active-col {
-  background: rgba(0, 120, 212, 0.1);
-}
+
 
 /* Data Bars (Progress-like background) */
 .grid-table th.col-hp {

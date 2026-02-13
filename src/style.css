@@ -231,8 +231,9 @@ body {
 }
 
 .tree-key {
-  color: #9cdcfe;
+  color: #77c4ff;
   cursor: pointer;
+  font-weight: 500;
 }
 
 .tree-key:hover {
@@ -240,7 +241,7 @@ body {
 }
 
 .tree-value {
-  color: #ce9178;
+  color: #eee;
 }
 
 .tree-info {

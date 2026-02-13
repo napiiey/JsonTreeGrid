@@ -310,22 +310,7 @@ body {
   background: rgba(0, 120, 212, 0.2);
 }
 
-/* 選択範囲の境界線用 (上下左右) */
-.grid-cell.range-left {
-  border-left: 1px solid #0078d4 !important;
-}
 
-.grid-cell.range-right {
-  border-right: 1px solid #0078d4 !important;
-}
-
-.grid-cell.range-top {
-  border-top: 1px solid #0078d4 !important;
-}
-
-.grid-cell.range-bottom {
-  border-bottom: 1px solid #0078d4 !important;
-}
 
 .grid-index {
   background: #1e1e1e !important;

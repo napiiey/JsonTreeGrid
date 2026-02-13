@@ -675,12 +675,6 @@ export class GridView {
             const inRange = (r >= r1 && r <= r2 && c >= c1 && c <= c2);
             td.classList.toggle('range-selected', inRange);
             td.classList.toggle('selected', r === this.selectionAnchor.rowIndex && c === this.selectionAnchor.colIndex);
-
-            // 境界線のスタイル
-            td.classList.toggle('range-left', inRange && c === c1);
-            td.classList.toggle('range-right', inRange && c === c2);
-            td.classList.toggle('range-top', inRange && r === r1);
-            td.classList.toggle('range-bottom', inRange && r === r2);
         });
 
         // アクティブなセルの同期（アンカー位置を開始点とする）

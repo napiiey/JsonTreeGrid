@@ -180,8 +180,7 @@ class App {
             // 値の編集
             const val = this.model.getValueByPath(this.model.parsePath(detail.path));
             if (val !== null && typeof val === 'object') {
-                input.value = Array.isArray(val) ? '[ Array ]' : '{ Object }';
-                input.disabled = true;
+                input.value = JSON.stringify(val);
             } else {
                 input.value = val !== undefined ? String(val) : '';
             }
@@ -211,8 +210,17 @@ class App {
             if (String(oldVal) !== newValue) {
                 // 型を維持しようとする簡易的な変換
                 let typedValue = newValue;
-                if (typeof oldVal === 'number') typedValue = Number(newValue);
-                else if (typeof oldVal === 'boolean') typedValue = newValue.toLowerCase() === 'true';
+                if (typeof oldVal === 'number') {
+                    typedValue = Number(newValue);
+                } else if (typeof oldVal === 'boolean') {
+                    typedValue = newValue.toLowerCase() === 'true';
+                } else if (typeof oldVal === 'object' && oldVal !== null) {
+                    try {
+                        typedValue = JSON.parse(newValue);
+                    } catch (e) {
+                        console.warn('Invalid JSON in toolbar input');
+                    }
+                }
 
                 this.model.updateValue(detail.path, typedValue);
             }

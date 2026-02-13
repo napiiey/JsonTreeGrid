@@ -102,16 +102,15 @@ export class TreeView {
             valSpan.className = 'tree-value';
             valSpan.textContent = String(data);
             nodeEl.appendChild(valSpan);
-        } else if (isArray) {
-            const info = document.createElement('span');
-            info.className = 'tree-info';
-            info.textContent = ` [${data.length}]`;
-            nodeEl.appendChild(info);
         } else {
-            const info = document.createElement('span');
-            info.className = 'tree-info';
-            info.textContent = ` { }`;
-            nodeEl.appendChild(info);
+            const sep = document.createElement('span');
+            sep.textContent = ': ';
+            nodeEl.appendChild(sep);
+
+            const valSpan = document.createElement('span');
+            valSpan.className = 'tree-value';
+            valSpan.textContent = JSON.stringify(data);
+            nodeEl.appendChild(valSpan);
         }
 
         container.appendChild(nodeEl);

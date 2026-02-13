@@ -27,6 +27,13 @@ export class GridView {
         this.selectionFocus = null;  // { rowIndex, colIndex }
         this.isSelecting = false;
 
+        // 仮想スクロール用の状態
+        this.rowHeights = []; // キャッシュされた行の高さ
+        this.defaultRowHeight = 22; // 推定行高さ
+        this.bufferRows = 5; // 上下に余分に描画する行数
+        this.scrollTop = 0;
+        this.viewportHeight = 0;
+
         // 編集・選択のイベントは mousedown/dblclick で管理
 
         this.container.addEventListener('dblclick', (e) => {
@@ -75,6 +82,20 @@ export class GridView {
         this.container.addEventListener('dragend', (e) => this.handleDragEnd(e));
 
         window.addEventListener('keydown', (e) => this.handleKeyDown(e));
+
+        // スクロール時に仮想スクロールを更新
+        this.scroller = this.container.parentElement;
+        this.scroller.addEventListener('scroll', () => {
+            if (!this.lastGridContext) return;
+            this.scrollTop = this.scroller.scrollTop;
+            this.updateVirtualRows();
+        });
+
+        // コンテナのサイズ変更時に表示範囲を再計算
+        this.resizeObserver = new ResizeObserver(() => {
+            if (this.lastGridContext) this.updateVirtualRows();
+        });
+        this.resizeObserver.observe(this.scroller);
     }
 
     setSelection(path) {
@@ -205,15 +226,9 @@ export class GridView {
             colInitialWidths.set(colId, finalWidth);
         });
 
-        // カラム名から色クラスへのマッピング
-        const getColorClass = (col) => {
-            const c = col.toLowerCase();
-            if (c.includes('hp')) return 'bar-green';
-            if (c.includes('atk')) return 'bar-red';
-            if (c.includes('int')) return 'bar-blue';
-            if (c.includes('def')) return 'bar-yellow';
-            return 'bar-grey';
-        };
+        this.columnMaxMap = columnMaxMap;
+        this.columnDefs = columnDefs;
+        this.lastGridContext = context;
 
         const getHeaderClass = (col) => {
             const c = col.toLowerCase();
@@ -471,75 +486,183 @@ export class GridView {
             thead.appendChild(tr);
         }
         table.appendChild(thead);
-
-        // ボディ
-        const tbody = document.createElement('tbody');
-        rows.forEach((rowData, rowIndex) => {
-            const tr = document.createElement('tr');
-            tr.className = 'grid-row';
-            tr.dataset.index = rowIndex;
-
-            const indexTd = document.createElement('td');
-            indexTd.textContent = rowIndex;
-            indexTd.className = 'grid-index';
-            indexTd.draggable = true; // インデックス部分のみドラッグ可能にする
-            if (isArray) {
-                indexTd.oncontextmenu = (e) => this.showIndexContextMenu(e, rowIndex, parentParts);
-            }
-            tr.appendChild(indexTd);
-
-            columnDefs.forEach((colDef, colIndex) => {
-                const td = document.createElement('td');
-                td.className = 'grid-cell';
-                td.dataset.colIndex = colIndex;
-
-                const val = this.model.getValueByPath(colDef.path, rowData);
-
-                if (val !== null && typeof val === 'object') {
-                    td.textContent = JSON.stringify(val);
-                    td.title = JSON.stringify(val, null, 2);
-                    td.classList.add('cell-object');
-                } else {
-                    td.textContent = val !== undefined ? val : '';
-                }
-
-                // データバー
-                const num = parseFloat(val);
-                const max = columnMaxMap.get(colDef);
-                if (max !== undefined && !isNaN(num)) {
-                    const percent = Math.min(100, Math.max(0, (num / max) * 100));
-                    const bar = document.createElement('div');
-                    bar.className = `data-bar ${getColorClass(colDef.name)}`;
-                    bar.style.width = `${percent}%`;
-                    td.classList.add('has-bar');
-                    td.appendChild(bar);
-                }
-
-                // パス
-                let cellPath = this.partsToPath(parentParts);
-                if (isArray) {
-                    cellPath += `[${rowIndex}]`;
-                }
-                colDef.path.forEach(p => {
-                    if (p.startsWith('[')) cellPath += p;
-                    else cellPath += (cellPath ? '.' : '') + p;
-                });
-                td.dataset.path = cellPath;
-
-                if (cellPath === this.selectedPath) {
-                    td.classList.add('selected');
-                }
-
-
-                tr.appendChild(td);
-            });
-            tbody.appendChild(tr);
-        });
-        table.appendChild(tbody);
         this.container.appendChild(table);
 
-        // レンダリング後に選択状態を更新
+        // ボディ（まずは空で作成し、updateVirtualRowsで中身を埋める）
+        const tbody = document.createElement('tbody');
+        table.appendChild(tbody);
+
+        this.updateVirtualRows();
+    }
+
+    getColorClass(colName) {
+        const c = colName.toLowerCase();
+        if (c.includes('hp')) return 'bar-green';
+        if (c.includes('atk')) return 'bar-red';
+        if (c.includes('int')) return 'bar-blue';
+        if (c.includes('def')) return 'bar-yellow';
+        return 'bar-grey';
+    }
+
+    updateVirtualRows() {
+        if (!this.lastGridContext) return;
+        this.scrollTop = this.scroller.scrollTop;
+        const { rows } = this.lastGridContext;
+        const table = this.container.querySelector('.grid-table');
+        if (!table) return;
+        const tbody = table.querySelector('tbody');
+        if (!tbody) return;
+
+        const totalRows = rows.length;
+        if (this.rowHeights.length !== totalRows) {
+            this.rowHeights = new Array(totalRows).fill(this.defaultRowHeight);
+        }
+
+        // 累積高さの計算
+        const rowOffsets = new Array(totalRows + 1).fill(0);
+        for (let i = 0; i < totalRows; i++) {
+            rowOffsets[i + 1] = rowOffsets[i] + this.rowHeights[i];
+        }
+        const totalHeight = rowOffsets[totalRows];
+
+        // 表示範囲の特定
+        const viewportHeight = this.scroller.clientHeight;
+        const startY = this.scrollTop;
+        const endY = startY + viewportHeight;
+
+        let startIndex = 0;
+        while (startIndex < totalRows && rowOffsets[startIndex + 1] < startY) {
+            startIndex++;
+        }
+        startIndex = Math.max(0, startIndex - this.bufferRows);
+
+        let endIndex = startIndex;
+        while (endIndex < totalRows && rowOffsets[endIndex] < endY) {
+            endIndex++;
+        }
+        endIndex = Math.min(totalRows - 1, endIndex + this.bufferRows);
+
+        // レンダリング
+        tbody.innerHTML = '';
+
+        if (startIndex > 0) {
+            const topSpacer = document.createElement('tr');
+            const td = document.createElement('td');
+            td.setAttribute('colspan', this.columnDefs.length + 1);
+            td.style.height = `${rowOffsets[startIndex]}px`;
+            td.style.padding = '0';
+            td.style.border = 'none';
+            topSpacer.appendChild(td);
+            tbody.appendChild(topSpacer);
+        }
+
+        for (let i = startIndex; i <= endIndex; i++) {
+            const tr = this.createRowElement(rows[i], i);
+            tbody.appendChild(tr);
+        }
+
+        if (endIndex < totalRows - 1) {
+            const bottomSpacer = document.createElement('tr');
+            const td = document.createElement('td');
+            td.setAttribute('colspan', this.columnDefs.length + 1);
+            td.style.height = `${totalHeight - rowOffsets[endIndex + 1]}px`;
+            td.style.padding = '0';
+            td.style.border = 'none';
+            bottomSpacer.appendChild(td);
+            tbody.appendChild(bottomSpacer);
+        }
+
         this.updateSelectionUI();
+
+        // 実際の高さを計測してキャッシュを修正
+        requestAnimationFrame(() => {
+            let changed = false;
+            const renderedRows = tbody.querySelectorAll('.grid-row');
+            renderedRows.forEach(tr => {
+                const idx = parseInt(tr.dataset.index);
+                const actualH = tr.offsetHeight;
+                if (Math.abs(this.rowHeights[idx] - actualH) > 0.5) {
+                    this.rowHeights[idx] = actualH;
+                    changed = true;
+                }
+            });
+            // 高さが変わっていたら再描画（ただし無限ループ防止のため閾値を設ける）
+            if (changed) {
+                // スクロールバーがガタつかないよう、スペーサーのみを後から修正する手法もあるが、
+                // 今回はシンプルに再描画を予約する
+                // this.updateVirtualRows(); // 慎重に
+            }
+        });
+    }
+
+    createRowElement(rowData, rowIndex) {
+        const { isArray, parentParts } = this.lastGridContext;
+        const tr = document.createElement('tr');
+        tr.className = 'grid-row';
+        tr.dataset.index = rowIndex;
+
+        const indexTd = document.createElement('td');
+        indexTd.textContent = rowIndex;
+        indexTd.className = 'grid-index';
+        indexTd.draggable = true;
+        if (isArray) {
+            indexTd.oncontextmenu = (e) => this.showIndexContextMenu(e, rowIndex, parentParts);
+        }
+        tr.appendChild(indexTd);
+
+        this.columnDefs.forEach((colDef, colIndex) => {
+            const td = document.createElement('td');
+            td.className = 'grid-cell';
+            td.dataset.colIndex = colIndex;
+
+            const val = this.model.getValueByPath(colDef.path, rowData);
+
+            if (val !== null && typeof val === 'object') {
+                td.textContent = JSON.stringify(val);
+                td.title = JSON.stringify(val, null, 2);
+                td.classList.add('cell-object');
+            } else {
+                td.textContent = val !== undefined ? val : '';
+            }
+
+            // データバー
+            const num = parseFloat(val);
+            const max = this.columnMaxMap.get(colDef);
+            if (max !== undefined && !isNaN(num)) {
+                const percent = Math.min(100, Math.max(0, (num / max) * 100));
+                const bar = document.createElement('div');
+                bar.className = `data-bar ${this.getColorClass(colDef.name)}`;
+                bar.style.width = `${percent}%`;
+                td.classList.add('has-bar');
+                td.appendChild(bar);
+            }
+
+            // パス
+            let cellPath = this.partsToPath(parentParts);
+            if (isArray) {
+                cellPath += `[${rowIndex}]`;
+            }
+            colDef.path.forEach(p => {
+                if (p.startsWith('[')) cellPath += p;
+                else cellPath += (cellPath ? '.' : '') + p;
+            });
+            td.dataset.path = cellPath;
+            if (this.selectionAnchor && this.selectionFocus) {
+                const r1 = Math.min(this.selectionAnchor.rowIndex, this.selectionFocus.rowIndex);
+                const r2 = Math.max(this.selectionAnchor.rowIndex, this.selectionFocus.rowIndex);
+                const c1 = Math.min(this.selectionAnchor.colIndex, this.selectionFocus.colIndex);
+                const c2 = Math.max(this.selectionAnchor.colIndex, this.selectionFocus.colIndex);
+
+                const inRange = (rowIndex >= r1 && rowIndex <= r2 && colIndex >= c1 && colIndex <= c2);
+                const isAnchor = (rowIndex === this.selectionAnchor.rowIndex && colIndex === this.selectionAnchor.colIndex);
+
+                if (inRange) td.classList.add('range-selected');
+                if (isAnchor) td.classList.add('selected');
+            }
+
+            tr.appendChild(td);
+        });
+        return tr;
     }
 
     // --- マウスイベント (リサイズ / 範囲選択) ---
@@ -783,7 +906,9 @@ export class GridView {
     }
 
     getSelectedPaths() {
-        if (!this.selectionAnchor || !this.selectionFocus) return [];
+        if (!this.selectionAnchor || !this.selectionFocus || !this.lastGridContext) return [];
+        const { rows, isArray, parentParts } = this.lastGridContext;
+
         const r1 = Math.min(this.selectionAnchor.rowIndex, this.selectionFocus.rowIndex);
         const r2 = Math.max(this.selectionAnchor.rowIndex, this.selectionFocus.rowIndex);
         const c1 = Math.min(this.selectionAnchor.colIndex, this.selectionFocus.colIndex);
@@ -793,8 +918,21 @@ export class GridView {
         for (let r = r1; r <= r2; r++) {
             const row = [];
             for (let c = c1; c <= c2; c++) {
-                const cell = this.container.querySelector(`.grid-row[data-index="${r}"] .grid-cell[data-col-index="${c}"]`);
-                row.push(cell ? cell.dataset.path : null);
+                const colDef = this.columnDefs[c];
+                if (!colDef) {
+                    row.push(null);
+                    continue;
+                }
+
+                let cellPath = this.partsToPath(parentParts);
+                if (isArray) {
+                    cellPath += `[${r}]`;
+                }
+                colDef.path.forEach(p => {
+                    if (p.startsWith('[')) cellPath += p;
+                    else cellPath += (cellPath ? '.' : '') + p;
+                });
+                row.push(cellPath);
             }
             range.push(row);
         }

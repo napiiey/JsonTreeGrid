@@ -71,6 +71,7 @@ body {
   background: #222;
   transition: background 0.2s, color 0.2s;
   white-space: nowrap;
+  box-sizing: border-box;
 }
 
 .tab:hover {
@@ -82,7 +83,6 @@ body {
   background: #333;
   color: #fff;
   border-top: 2px solid #0078d4;
-  margin-top: -1px;
 }
 
 .tab-name {

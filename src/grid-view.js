@@ -774,6 +774,13 @@ export class GridView {
         this.rowHeights = [];
         this.updateVirtualRows();
         this.render(); // ヘッダー等再描画を含めるため
+        this.model.dispatchEvent(new CustomEvent('selectionChange', { detail: { path: this.selectedPath } }));
+    }
+
+    isSelectionWrapped() {
+        if (!this.selectionAnchor) return false;
+        const colId = this.columnDefs[this.selectionAnchor.colIndex]?.path.join('.');
+        return this.wrappedColumnIds.has(colId);
     }
 
     handleMouseMove(e) {
@@ -836,6 +843,9 @@ export class GridView {
         if (activeCell && activeCell.dataset.path !== this.selectedPath) {
             this.selectedPath = activeCell.dataset.path;
             this.model.setSelection(this.selectedPath);
+        } else {
+            // パスが変わっていなくても、選択範囲（列）が変わった可能性があるので通知
+            this.model.dispatchEvent(new CustomEvent('selectionChange', { detail: { path: this.selectedPath } }));
         }
     }
 

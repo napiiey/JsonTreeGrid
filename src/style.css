@@ -337,9 +337,8 @@ body {
   overflow: visible;
   word-break: break-all;
   height: auto;
-  line-height: 1.4;
-  padding-top: 4px;
-  padding-bottom: 4px;
+  min-height: 22px;
+  /* 基本の td の padding (1px 8px) を継承 */
 }
 
 .grid-row.dragging {

@@ -23,6 +23,7 @@ class App {
 
         this.model.addEventListener('selectionChange', (e) => {
             this.gridView.setSelection(e.detail.path);
+            this.updateToolbarStates();
         });
 
         // リサイザーの設定
@@ -147,9 +148,26 @@ class App {
         const undoBtn = document.getElementById('toolbar-undo');
         const redoBtn = document.getElementById('toolbar-redo');
         const saveBtn = document.getElementById('toolbar-save');
+        const wrapBtn = document.getElementById('toolbar-wrap');
+
         if (undoBtn) undoBtn.disabled = !this.model.canUndo();
         if (redoBtn) redoBtn.disabled = !this.model.canRedo();
         if (saveBtn) saveBtn.disabled = !this.isDirty;
+
+        if (wrapBtn) {
+            const isWrapped = this.gridView.isSelectionWrapped();
+            // Googleスプレッドシート風のアイコン切り替え
+            // 切り詰め（初期）: M4 19h6v-2H4v2zM20 5H4v2h16V5zm-3 6H4v2h13.25c1.1 0 2 .9 2 2s-.9 2-2 2H15v-1.5L11 15l4 3.5V17h2.25c2.21 0 4-1.79 4-4s-1.79-4-4-4z
+            // 折り返し: M4 19h6v-2H4v2zM20 5H4v2h16V5zm-7 6H4v2h9c1.65 0 3 1.35 3 3s-1.35 3-3 3h-1v-1.5L7 19l4 3.5V21h2c2.76 0 5-2.24 5-5s-2.24-5-5-5z
+            const path = wrapBtn.querySelector('path');
+            if (path) {
+                if (isWrapped) {
+                    path.setAttribute('d', 'M4 19h6v-2H4v2zM20 5H4v2h16V5zm-7 6H4v2h9c1.65 0 3 1.35 3 3s-1.35 3-3 3h-1v-1.5L7 19l4 3.5V21h2c2.76 0 5-2.24 5-5s-2.24-5-5-5z');
+                } else {
+                    path.setAttribute('d', 'M4 19h6v-2H4v2zM20 5H4v2h16V5zm-3 6H4v2h13.25c1.1 0 2 .9 2 2s-.9 2-2 2H15v-1.5L11 15l4 3.5V17h2.25c2.21 0 4-1.79 4-4s-1.79-4-4-4z');
+                }
+            }
+        }
     }
 
     restoreFromLocalStorage() {

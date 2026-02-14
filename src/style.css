@@ -189,7 +189,8 @@ body {
 }
 
 .toolbar {
-  height: 26px;
+  height: 32px;
+  /* タブと同じ高さに合わせる */
   background: #333;
   display: flex;
   align-items: center;
@@ -199,7 +200,7 @@ body {
 
 .toolbar-divider {
   width: 1px;
-  height: 16px;
+  height: 20px;
   background: #444;
   margin: 0 8px;
 }
@@ -240,7 +241,7 @@ body {
   align-items: center;
   background: #252525;
   border: 1px solid #444;
-  height: 22px;
+  height: 24px;
   border-radius: 3px;
   overflow: hidden;
   margin-left: 4px;

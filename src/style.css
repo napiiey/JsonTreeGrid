@@ -33,7 +33,6 @@ body {
   display: flex;
   align-items: center;
   padding: 0 4px;
-  border-bottom: 1px solid #444;
   font-size: 12px;
   user-select: none;
   position: relative;
@@ -58,16 +57,20 @@ body {
 .tab {
   display: flex;
   align-items: center;
-  padding: 0 12px;
-  height: 100%;
+  padding: 0 16px;
+  height: 28px;
+  /* 少し低くして丸みを見せる */
+  margin-top: 4px;
+  /* 下に寄せる */
   color: #888;
-  border-right: 1px solid #333;
   cursor: pointer;
   max-width: 160px;
   min-width: 80px;
   font-size: 11px;
   position: relative;
-  background: #222;
+  background: transparent;
+  /* 非アクティブは透明に近く */
+  border-radius: 8px 8px 0 0;
   transition: background 0.2s, color 0.2s;
   white-space: nowrap;
   box-sizing: border-box;
@@ -79,9 +82,9 @@ body {
 }
 
 .tab.active {
-  background: #333;
+  background: #3c3c3c;
+  /* ツールバーと同じ明るい色で統一 */
   color: #fff;
-  border-top: 2px solid #0078d4;
 }
 
 .tab-name {
@@ -191,7 +194,8 @@ body {
 .toolbar {
   height: 32px;
   /* タブと同じ高さに合わせる */
-  background: #333;
+  background: #3c3c3c;
+  /* アクティブなタブと同じ色で統一 */
   display: flex;
   align-items: center;
   padding: 0 8px;

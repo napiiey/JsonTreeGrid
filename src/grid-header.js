@@ -153,7 +153,10 @@ export class GridHeader {
             th.appendChild(handle);
 
             if (columnMaxMap.has(col)) {
-                th.style.backgroundColor = this.grid.getBarColor(colIndex, 0.46);
+                const bar = document.createElement('div');
+                bar.className = 'header-bar';
+                bar.style.backgroundColor = this.grid.getBarColor(colIndex, 0.46);
+                th.appendChild(bar);
             }
         }
 

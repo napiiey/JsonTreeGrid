@@ -110,6 +110,7 @@ export class GridView {
     toggleWrapSelection() { this.selection.toggleWrapSelection(); }
     isSelectionWrapped() { return this.selection.isSelectionWrapped(); }
     updateSelectionUI() { this.selection.updateSelectionUI(); }
+    selectAll() { this.selection.selectAll(); }
 
     // --- レンダリング ---
 

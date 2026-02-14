@@ -97,7 +97,8 @@ class App {
                     'y': () => { e.preventDefault(); this.activeModel?.redo(); },
                     'c': () => { e.preventDefault(); this.copySelection(); },
                     'x': () => { e.preventDefault(); this.cutSelection(); },
-                    'v': () => { e.preventDefault(); this.pasteSelection(); }
+                    'v': () => { e.preventDefault(); this.pasteSelection(); },
+                    'a': () => { e.preventDefault(); this.gridView.selectAll(); }
                 };
                 if (shortcuts[key]) shortcuts[key]();
             } else if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -421,6 +422,8 @@ class App {
         if (redoBtn) redoBtn.disabled = !this.activeModel?.canRedo();
         if (saveBtn) saveBtn.disabled = !this.activeTab?.isDirty;
         if (wrapBtn) {
+            const hasSelection = !!this.gridView.selectionAnchor;
+            wrapBtn.disabled = !hasSelection;
             const isWrapped = this.gridView.isSelectionWrapped();
             const path = wrapBtn.querySelector('path');
             if (path) path.setAttribute('d', isWrapped ? 'M4 19h6v-2H4v2zM20 5H4v2h16V5zm-7 6H4v2h9c1.65 0 3 1.35 3 3s-1.35 3-3 3h-1v-1.5L7 19l4 3.5V21h2c2.76 0 5-2.24 5-5s-2.24-5-5-5z' : 'M4 19h6v-2H4v2zM20 5H4v2h16V5zm-3 6H4v2h13.25c1.1 0 2 .9 2 2s-.9 2-2 2H15v-1.5L11 15l4 3.5V17h2.25c2.21 0 4-1.79 4-4s-1.79-4-4-4z');

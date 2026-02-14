@@ -204,6 +204,25 @@ export class GridSelection {
         this.updateSelectionUI();
     }
 
+    selectAll() {
+        if (!this.grid.lastGridContext || !this.grid.columnDefs) return;
+        const rowCount = this.grid.lastGridContext.rows.length;
+        const colCount = this.grid.columnDefs.length;
+        if (rowCount === 0 || colCount === 0) return;
+
+        this.grid.selectionAnchor = { rowIndex: 0, colIndex: 0 };
+        this.grid.selectionFocus = { rowIndex: rowCount - 1, colIndex: colCount - 1 };
+
+        // 最初のセルをアクティブパスにする
+        const firstCell = this.grid.container.querySelector(`.grid-row[data-index="0"] .grid-cell[data-col-index="0"]`);
+        if (firstCell) {
+            this.grid.selectedPath = firstCell.dataset.path;
+            this.grid.model.setSelection(this.grid.selectedPath);
+        }
+
+        this.updateSelectionUI();
+    }
+
     toggleWrapSelection() {
         if (!this.grid.selectionAnchor || !this.grid.selectionFocus) return;
 

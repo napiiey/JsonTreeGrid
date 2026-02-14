@@ -91,6 +91,8 @@ export class GridHeader {
                 const indexTh = document.createElement('th');
                 indexTh.className = 'grid-index';
                 indexTh.setAttribute('rowspan', maxDepth);
+                indexTh.style.cursor = 'pointer';
+                indexTh.onclick = () => this.grid.selectAll();
                 tr.appendChild(indexTh);
             }
 
